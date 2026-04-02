@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-rw
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  type: ExternalName
+  externalName: managed-postgres.nursing.example.com
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  type: ExternalName
+  externalName: managed-rabbitmq.nursing.example.com
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  type: ExternalName
+  externalName: managed-keycloak.nursing.example.com
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: seq
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  type: ExternalName
+  externalName: managed-seq.nursing.example.com

@@ -1,0 +1,37 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nursing-platform-ingress
+spec:
+  rules:
+    - host: api.staging.nursing.example.com
+      http:
+        paths:
+          - path: /api/gateway
+            pathType: Prefix
+            backend:
+              service:
+                name: nursing-api-gateway
+                port:
+                  number: 8080
+          - path: /api/admin
+            pathType: Prefix
+            backend:
+              service:
+                name: nursing-admin-bff
+                port:
+                  number: 8080
+          - path: /api/family
+            pathType: Prefix
+            backend:
+              service:
+                name: nursing-family-bff
+                port:
+                  number: 8080
+          - path: /api/nani
+            pathType: Prefix
+            backend:
+              service:
+                name: nursing-nani-bff
+                port:
+                  number: 8080

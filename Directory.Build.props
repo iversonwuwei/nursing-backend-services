@@ -1,0 +1,11 @@
+<Project>
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <Company>Nursing Platform</Company>
+    <Authors>GitHub Copilot</Authors>
+    <RepositoryUrl>https://example.invalid/nursing-backend-services</RepositoryUrl>
+  </PropertyGroup>
+</Project>

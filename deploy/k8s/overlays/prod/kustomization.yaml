@@ -1,0 +1,48 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: nursing-platform-prod
+resources:
+  - ../../base
+  - external-dependencies.yaml
+  - external-secret.yaml
+patches:
+  - path: config-override.yaml
+  - path: ingress-override.yaml
+  - path: hpa-override.yaml
+  - path: resources-override.yaml
+  - path: secret.delete.yaml
+images:
+  - name: ghcr.io/example/nursing-backend/api-gateway
+    newTag: 1.0.0
+  - name: ghcr.io/example/nursing-backend/admin-bff
+    newTag: 1.0.0
+  - name: ghcr.io/example/nursing-backend/family-bff
+    newTag: 1.0.0
+  - name: ghcr.io/example/nursing-backend/nani-bff
+    newTag: 1.0.0
+  - name: ghcr.io/example/nursing-backend/identity
+    newTag: 1.0.0
+  - name: ghcr.io/example/nursing-backend/tenant
+    newTag: 1.0.0
+  - name: ghcr.io/example/nursing-backend/elder
+    newTag: 1.0.0
+  - name: ghcr.io/example/nursing-backend/care
+    newTag: 1.0.0
+  - name: ghcr.io/example/nursing-backend/health
+    newTag: 1.0.0
+  - name: ghcr.io/example/nursing-backend/visit
+    newTag: 1.0.0
+  - name: ghcr.io/example/nursing-backend/notification
+    newTag: 1.0.0
+  - name: ghcr.io/example/nursing-backend/staffing
+    newTag: 1.0.0
+  - name: ghcr.io/example/nursing-backend/operations
+    newTag: 1.0.0
+  - name: ghcr.io/example/nursing-backend/billing
+    newTag: 1.0.0
+  - name: ghcr.io/example/nursing-backend/ai-orchestration
+    newTag: 1.0.0
+  - name: ghcr.io/example/nursing-backend/database-migrator
+    newTag: 1.0.0
+  - name: ghcr.io/example/nursing-backend/event-worker
+    newTag: 1.0.0

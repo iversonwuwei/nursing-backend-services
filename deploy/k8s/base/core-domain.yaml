@@ -1,0 +1,384 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nursing-identity
+  labels:
+    app.kubernetes.io/name: nursing-identity
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nursing-identity
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nursing-identity
+        app.kubernetes.io/part-of: nursing-platform
+        app.kubernetes.io/tier: domain
+    spec:
+      containers:
+        - name: identity
+          image: ghcr.io/example/nursing-backend/identity:latest
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: nursing-platform-config
+            - secretRef:
+                name: nursing-platform-secrets
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nursing-identity
+spec:
+  selector:
+    app.kubernetes.io/name: nursing-identity
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nursing-tenant
+  labels:
+    app.kubernetes.io/name: nursing-tenant
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nursing-tenant
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nursing-tenant
+        app.kubernetes.io/part-of: nursing-platform
+        app.kubernetes.io/tier: domain
+    spec:
+      containers:
+        - name: tenant
+          image: ghcr.io/example/nursing-backend/tenant:latest
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: nursing-platform-config
+            - secretRef:
+                name: nursing-platform-secrets
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nursing-tenant
+spec:
+  selector:
+    app.kubernetes.io/name: nursing-tenant
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nursing-elder
+  labels:
+    app.kubernetes.io/name: nursing-elder
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nursing-elder
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nursing-elder
+        app.kubernetes.io/part-of: nursing-platform
+        app.kubernetes.io/tier: domain
+    spec:
+      containers:
+        - name: elder
+          image: ghcr.io/example/nursing-backend/elder:latest
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: nursing-platform-config
+            - secretRef:
+                name: nursing-platform-secrets
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nursing-elder
+spec:
+  selector:
+    app.kubernetes.io/name: nursing-elder
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nursing-care
+  labels:
+    app.kubernetes.io/name: nursing-care
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nursing-care
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nursing-care
+        app.kubernetes.io/part-of: nursing-platform
+        app.kubernetes.io/tier: domain
+    spec:
+      containers:
+        - name: care
+          image: ghcr.io/example/nursing-backend/care:latest
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: nursing-platform-config
+            - secretRef:
+                name: nursing-platform-secrets
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+          resources:
+            requests:
+              cpu: 150m
+              memory: 256Mi
+            limits:
+              cpu: 800m
+              memory: 768Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nursing-care
+spec:
+  selector:
+    app.kubernetes.io/name: nursing-care
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nursing-health
+  labels:
+    app.kubernetes.io/name: nursing-health
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nursing-health
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nursing-health
+        app.kubernetes.io/part-of: nursing-platform
+        app.kubernetes.io/tier: domain
+    spec:
+      containers:
+        - name: health
+          image: ghcr.io/example/nursing-backend/health:latest
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: nursing-platform-config
+            - secretRef:
+                name: nursing-platform-secrets
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nursing-health
+spec:
+  selector:
+    app.kubernetes.io/name: nursing-health
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nursing-visit
+  labels:
+    app.kubernetes.io/name: nursing-visit
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nursing-visit
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nursing-visit
+        app.kubernetes.io/part-of: nursing-platform
+        app.kubernetes.io/tier: domain
+    spec:
+      containers:
+        - name: visit
+          image: ghcr.io/example/nursing-backend/visit:latest
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: nursing-platform-config
+            - secretRef:
+                name: nursing-platform-secrets
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nursing-visit
+spec:
+  selector:
+    app.kubernetes.io/name: nursing-visit
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nursing-notification
+  labels:
+    app.kubernetes.io/name: nursing-notification
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nursing-notification
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nursing-notification
+        app.kubernetes.io/part-of: nursing-platform
+        app.kubernetes.io/tier: domain
+    spec:
+      containers:
+        - name: notification
+          image: ghcr.io/example/nursing-backend/notification:latest
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: nursing-platform-config
+            - secretRef:
+                name: nursing-platform-secrets
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nursing-notification
+spec:
+  selector:
+    app.kubernetes.io/name: nursing-notification
+  ports:
+    - port: 8080
+      targetPort: 8080

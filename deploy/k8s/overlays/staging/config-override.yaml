@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nursing-platform-config
+data:
+  ASPNETCORE_ENVIRONMENT: Staging
+  RabbitMq__Host: rabbitmq-staging.messaging.svc.cluster.local

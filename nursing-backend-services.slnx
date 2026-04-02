@@ -1,0 +1,37 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/Bff/">
+    <Project Path="src/Bff/NursingBackend.Bff.Admin/NursingBackend.Bff.Admin.csproj" />
+    <Project Path="src/Bff/NursingBackend.Bff.Family/NursingBackend.Bff.Family.csproj" />
+    <Project Path="src/Bff/NursingBackend.Bff.Nani/NursingBackend.Bff.Nani.csproj" />
+  </Folder>
+  <Folder Name="/src/BuildingBlocks/">
+    <Project Path="src/BuildingBlocks/NursingBackend.BuildingBlocks/NursingBackend.BuildingBlocks.csproj" />
+  </Folder>
+  <Folder Name="/src/Gateway/">
+    <Project Path="src/Gateway/NursingBackend.ApiGateway/NursingBackend.ApiGateway.csproj" />
+  </Folder>
+  <Folder Name="/src/Tools/">
+    <Project Path="src/Tools/NursingBackend.DatabaseMigrator/NursingBackend.DatabaseMigrator.csproj" />
+    <Project Path="src/Tools/NursingBackend.DeadLetterReplay/NursingBackend.DeadLetterReplay.csproj" />
+  </Folder>
+  <Folder Name="/src/Workers/">
+    <Project Path="src/Workers/NursingBackend.EventWorker/NursingBackend.EventWorker.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/">
+    <Project Path="src/Services/NursingBackend.Services.AiOrchestration/NursingBackend.Services.AiOrchestration.csproj" />
+    <Project Path="src/Services/NursingBackend.Services.Billing/NursingBackend.Services.Billing.csproj" />
+    <Project Path="src/Services/NursingBackend.Services.Care/NursingBackend.Services.Care.csproj" />
+    <Project Path="src/Services/NursingBackend.Services.Elder/NursingBackend.Services.Elder.csproj" />
+    <Project Path="src/Services/NursingBackend.Services.Health/NursingBackend.Services.Health.csproj" />
+    <Project Path="src/Services/NursingBackend.Services.Identity/NursingBackend.Services.Identity.csproj" />
+    <Project Path="src/Services/NursingBackend.Services.Notification/NursingBackend.Services.Notification.csproj" />
+    <Project Path="src/Services/NursingBackend.Services.Operations/NursingBackend.Services.Operations.csproj" />
+    <Project Path="src/Services/NursingBackend.Services.Staffing/NursingBackend.Services.Staffing.csproj" />
+    <Project Path="src/Services/NursingBackend.Services.Tenant/NursingBackend.Services.Tenant.csproj" />
+    <Project Path="src/Services/NursingBackend.Services.Visit/NursingBackend.Services.Visit.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/NursingBackend.ArchitectureTests/NursingBackend.ArchitectureTests.csproj" />
+  </Folder>
+</Solution>

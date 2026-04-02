@@ -1,0 +1,48 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: nursing-platform-alerts
+  labels:
+    app.kubernetes.io/part-of: nursing-platform
+spec:
+  groups:
+    - name: nursing-notification.rules
+      rules:
+        - alert: NursingNotificationDeliveryFailures
+          expr: sum(increase(nursing_notification_delivery_failed_total[10m])) > 0
+          for: 5m
+          labels:
+            severity: warning
+            service: notification
+          annotations:
+            summary: Notification delivery failures detected
+            description: Billing or family-facing notification deliveries have failed within the last 10 minutes.
+        - alert: NursingNotificationCompensationRequestFailures
+          expr: sum(increase(nursing_notification_compensation_request_failed_total[10m])) > 0
+          for: 5m
+          labels:
+            severity: critical
+            service: notification
+          annotations:
+            summary: Notification compensation callback failures detected
+            description: Notification service could not create Billing compensation records after a failed delivery.
+        - alert: NursingNotificationProviderSignatureFailures
+          expr: sum(increase(nursing_notification_provider_signature_failures_total[10m])) > 0
+          for: 5m
+          labels:
+            severity: critical
+            service: notification
+          annotations:
+            summary: Notification provider signature failures detected
+            description: Provider callback requests are failing signature verification or using invalid credentials.
+    - name: nursing-billing.rules
+      rules:
+        - alert: NursingBillingCompensationsCreated
+          expr: sum(increase(nursing_billing_compensations_created_total[15m])) > 2
+          for: 10m
+          labels:
+            severity: warning
+            service: billing
+          annotations:
+            summary: Billing compensations are spiking
+            description: More than two billing compensations were created within 15 minutes, indicating sustained delivery issues.

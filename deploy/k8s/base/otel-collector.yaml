@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nursing-otel-collector
+  labels:
+    app.kubernetes.io/name: otel-collector
+    app.kubernetes.io/part-of: nursing-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: otel-collector
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: otel-collector
+        app.kubernetes.io/part-of: nursing-platform
+    spec:
+      containers:
+        - name: otel-collector
+          image: otel/opentelemetry-collector-contrib:0.101.0
+          args:
+            - --config=/conf/collector.yaml
+          env:
+            - name: OTEL_UPSTREAM_OTLP_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: nursing-platform-config
+                  key: OTEL_UPSTREAM_OTLP_ENDPOINT
+            - name: OTEL_COLLECTOR_DEBUG_VERBOSITY
+              valueFrom:
+                configMapKeyRef:
+                  name: nursing-platform-config
+                  key: OTEL_COLLECTOR_DEBUG_VERBOSITY
+            - name: OTEL_UPSTREAM_OTLP_AUTHORIZATION
+              valueFrom:
+                secretKeyRef:
+                  name: nursing-platform-secrets
+                  key: OTEL_UPSTREAM_OTLP_AUTHORIZATION
+          ports:
+            - name: otlp-grpc
+              containerPort: 4317
+            - name: otlp-http
+              containerPort: 4318
+            - name: prom-metrics
+              containerPort: 9464
+          volumeMounts:
+            - name: config
+              mountPath: /conf
+          readinessProbe:
+            httpGet:
+              path: /
+              port: prom-metrics
+          livenessProbe:
+            httpGet:
+              path: /
+              port: prom-metrics
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: config
+          configMap:
+            name: nursing-otel-collector-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-collector
+  labels:
+    app.kubernetes.io/name: otel-collector
+    app.kubernetes.io/part-of: nursing-platform
+spec:
+  selector:
+    app.kubernetes.io/name: otel-collector
+  ports:
+    - name: otlp-grpc
+      port: 4317
+      targetPort: otlp-grpc
+    - name: otlp-http
+      port: 4318
+      targetPort: otlp-http
+    - name: prom-metrics
+      port: 9464
+      targetPort: prom-metrics

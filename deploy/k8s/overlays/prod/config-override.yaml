@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nursing-platform-config
+data:
+  ASPNETCORE_ENVIRONMENT: Production
+  RabbitMq__Host: rabbitmq
+  Outbox__DispatchInlineOnWrite: "false"

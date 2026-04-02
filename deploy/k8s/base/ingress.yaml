@@ -1,0 +1,41 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nursing-platform-ingress
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+    nginx.ingress.kubernetes.io/proxy-body-size: 10m
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: api.nursing.local
+      http:
+        paths:
+          - path: /api/gateway
+            pathType: Prefix
+            backend:
+              service:
+                name: nursing-api-gateway
+                port:
+                  number: 8080
+          - path: /api/admin
+            pathType: Prefix
+            backend:
+              service:
+                name: nursing-admin-bff
+                port:
+                  number: 8080
+          - path: /api/family
+            pathType: Prefix
+            backend:
+              service:
+                name: nursing-family-bff
+                port:
+                  number: 8080
+          - path: /api/nani
+            pathType: Prefix
+            backend:
+              service:
+                name: nursing-nani-bff
+                port:
+                  number: 8080

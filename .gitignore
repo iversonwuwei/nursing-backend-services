@@ -1,0 +1,17 @@
+bin/
+obj/
+.vs/
+TestResults/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# IDE settings
+.idea/
+.vscode/
+
+# OS files
+.DS_Store

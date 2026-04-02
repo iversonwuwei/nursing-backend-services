@@ -1,0 +1,44 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: nursing-platform-staging
+resources:
+  - ../../base
+patches:
+  - path: config-override.yaml
+  - path: ingress-override.yaml
+  - path: hpa-override.yaml
+images:
+  - name: ghcr.io/example/nursing-backend/api-gateway
+    newTag: staging
+  - name: ghcr.io/example/nursing-backend/admin-bff
+    newTag: staging
+  - name: ghcr.io/example/nursing-backend/family-bff
+    newTag: staging
+  - name: ghcr.io/example/nursing-backend/nani-bff
+    newTag: staging
+  - name: ghcr.io/example/nursing-backend/identity
+    newTag: staging
+  - name: ghcr.io/example/nursing-backend/tenant
+    newTag: staging
+  - name: ghcr.io/example/nursing-backend/elder
+    newTag: staging
+  - name: ghcr.io/example/nursing-backend/care
+    newTag: staging
+  - name: ghcr.io/example/nursing-backend/health
+    newTag: staging
+  - name: ghcr.io/example/nursing-backend/visit
+    newTag: staging
+  - name: ghcr.io/example/nursing-backend/notification
+    newTag: staging
+  - name: ghcr.io/example/nursing-backend/staffing
+    newTag: staging
+  - name: ghcr.io/example/nursing-backend/operations
+    newTag: staging
+  - name: ghcr.io/example/nursing-backend/billing
+    newTag: staging
+  - name: ghcr.io/example/nursing-backend/ai-orchestration
+    newTag: staging
+  - name: ghcr.io/example/nursing-backend/database-migrator
+    newTag: staging
+  - name: ghcr.io/example/nursing-backend/event-worker
+    newTag: staging
