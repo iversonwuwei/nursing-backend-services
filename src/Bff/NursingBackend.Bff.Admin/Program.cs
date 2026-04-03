@@ -29,19 +29,19 @@ app.MapPost("/api/admin/admissions/onboard", async (AdminAdmissionOnboardRequest
 		var identity = await GetJsonAsync<IdentityContextResponse>(
 			client,
 			context,
-			$"{ResolveServiceUrl(configuration, "Identity", "http://localhost:5301")}/api/identity/me",
+			$"{ResolveServiceUrl(configuration, "Identity", "http://localhost:5265")}/api/identity/me",
 			cancellationToken);
 
 		var tenant = await GetJsonAsync<TenantDescriptorResponse>(
 			client,
 			context,
-			$"{ResolveServiceUrl(configuration, "Tenant", "http://localhost:5302")}/api/tenants/{requestContext.TenantId}",
+			$"{ResolveServiceUrl(configuration, "Tenant", "http://localhost:5186")}/api/tenants/{requestContext.TenantId}",
 			cancellationToken);
 
 		var admission = await PostJsonAsync<AdmissionRecordResponse>(
 			client,
 			context,
-			$"{ResolveServiceUrl(configuration, "Elder", "http://localhost:5310")}/api/elders/admissions",
+			$"{ResolveServiceUrl(configuration, "Elder", "http://localhost:5062")}/api/elders/admissions",
 			new AdmissionCreateRequest(
 				AdmissionReference: request.AdmissionReference,
 				ElderName: request.ElderName,
@@ -57,7 +57,7 @@ app.MapPost("/api/admin/admissions/onboard", async (AdminAdmissionOnboardRequest
 		var healthArchive = await PostJsonAsync<HealthArchiveSummaryResponse>(
 			client,
 			context,
-			$"{ResolveServiceUrl(configuration, "Health", "http://localhost:5312")}/api/health/archives/from-admission",
+			$"{ResolveServiceUrl(configuration, "Health", "http://localhost:5197")}/api/health/archives/from-admission",
 			new HealthArchiveCreateFromAdmissionRequest(
 				AdmissionId: admission.AdmissionId,
 				ElderId: admission.ElderId,
@@ -74,7 +74,7 @@ app.MapPost("/api/admin/admissions/onboard", async (AdminAdmissionOnboardRequest
 		var carePlan = await PostJsonAsync<CarePlanResponse>(
 			client,
 			context,
-			$"{ResolveServiceUrl(configuration, "Care", "http://localhost:5311")}/api/care/plans/from-admission",
+			$"{ResolveServiceUrl(configuration, "Care", "http://localhost:5019")}/api/care/plans/from-admission",
 			new CarePlanCreateFromAdmissionRequest(
 				AdmissionId: admission.AdmissionId,
 				ElderId: admission.ElderId,
@@ -86,7 +86,7 @@ app.MapPost("/api/admin/admissions/onboard", async (AdminAdmissionOnboardRequest
 		var familyNotification = await PostJsonAsync<NotificationMessageResponse>(
 			client,
 			context,
-			$"{ResolveServiceUrl(configuration, "Notification", "http://localhost:5317")}/api/notifications/dispatch",
+			$"{ResolveServiceUrl(configuration, "Notification", "http://localhost:5144")}/api/notifications/dispatch",
 			new NotificationDispatchRequest(
 				Audience: "family",
 				AudienceKey: admission.ElderId,
@@ -101,7 +101,7 @@ app.MapPost("/api/admin/admissions/onboard", async (AdminAdmissionOnboardRequest
 		var naniNotifications = await GetJsonAsync<IReadOnlyList<NotificationMessageResponse>>(
 			client,
 			context,
-			$"{ResolveServiceUrl(configuration, "Notification", "http://localhost:5317")}/api/notifications?audience=nani&audienceKey={admission.ElderId}",
+			$"{ResolveServiceUrl(configuration, "Notification", "http://localhost:5144")}/api/notifications?audience=nani&audienceKey={admission.ElderId}",
 			cancellationToken) ?? [];
 
 		var notifications = new List<NotificationMessageResponse> { familyNotification };
@@ -119,6 +119,213 @@ app.MapPost("/api/admin/admissions/onboard", async (AdminAdmissionOnboardRequest
 	catch (Exception exception)
 	{
 		return Results.Problem(title: "入住纵切编排失败。", detail: exception.Message, statusCode: StatusCodes.Status502BadGateway);
+	}
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/nursing/workflow-board", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await GetJsonAsync<NursingWorkflowBoardResponse>(
+			client,
+			context,
+			$"{ResolveServiceUrl(configuration, "Care", "http://localhost:5019")}/api/care/admin/workflow-board",
+			cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception exception)
+	{
+		return Results.Problem(title: "护理工作流看板查询失败。", detail: exception.Message, statusCode: StatusCodes.Status502BadGateway);
+	}
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/nursing/observability", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await GetJsonAsync<CareWorkflowObservabilityResponse>(
+			client,
+			context,
+			$"{ResolveServiceUrl(configuration, "Care", "http://localhost:5019")}/api/care/admin/observability",
+			cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception exception)
+	{
+		return Results.Problem(title: "护理工作流观测查询失败。", detail: exception.Message, statusCode: StatusCodes.Status502BadGateway);
+	}
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/nursing/audits", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, int? take, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var suffix = take is > 0 ? $"?take={take.Value}" : string.Empty;
+		var response = await GetJsonAsync<IReadOnlyList<CareWorkflowAuditResponse>>(
+			client,
+			context,
+			$"{ResolveServiceUrl(configuration, "Care", "http://localhost:5019")}/api/care/admin/audits{suffix}",
+			cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception exception)
+	{
+		return Results.Problem(title: "护理工作流审计查询失败。", detail: exception.Message, statusCode: StatusCodes.Status502BadGateway);
+	}
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/nursing/packages", async (CreateServicePackageRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<ServicePackageResponse>(
+			client,
+			context,
+			$"{ResolveServiceUrl(configuration, "Care", "http://localhost:5019")}/api/care/admin/packages",
+			request,
+			cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception exception)
+	{
+		return Results.Problem(title: "创建护理套餐失败。", detail: exception.Message, statusCode: StatusCodes.Status502BadGateway);
+	}
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/nursing/packages/{packageId}/actions/{action}", async (string packageId, string action, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<ServicePackageActionResponse>(
+			client,
+			context,
+			$"{ResolveServiceUrl(configuration, "Care", "http://localhost:5019")}/api/care/admin/packages/{packageId}/actions/{action}",
+			new { },
+			cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception exception)
+	{
+		return Results.Problem(title: "护理套餐动作提交失败。", detail: exception.Message, statusCode: StatusCodes.Status502BadGateway);
+	}
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/nursing/packages/{packageId}/plans", async (string packageId, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<ServicePlanResponse>(
+			client,
+			context,
+			$"{ResolveServiceUrl(configuration, "Care", "http://localhost:5019")}/api/care/admin/packages/{packageId}/plans",
+			new { },
+			cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception exception)
+	{
+		return Results.Problem(title: "从护理套餐生成计划失败。", detail: exception.Message, statusCode: StatusCodes.Status502BadGateway);
+	}
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/nursing/plans", async (CreateServicePlanRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<ServicePlanResponse>(
+			client,
+			context,
+			$"{ResolveServiceUrl(configuration, "Care", "http://localhost:5019")}/api/care/admin/plans",
+			request,
+			cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception exception)
+	{
+		return Results.Problem(title: "创建护理计划失败。", detail: exception.Message, statusCode: StatusCodes.Status502BadGateway);
+	}
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/nursing/plans/{planId}/actions/{action}", async (string planId, string action, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<ServicePlanActionResponse>(
+			client,
+			context,
+			$"{ResolveServiceUrl(configuration, "Care", "http://localhost:5019")}/api/care/admin/plans/{planId}/actions/{action}",
+			new { },
+			cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception exception)
+	{
+		return Results.Problem(title: "护理计划动作提交失败。", detail: exception.Message, statusCode: StatusCodes.Status502BadGateway);
+	}
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/nursing/tasks/{taskId}/start", async (string taskId, ServicePlanTaskActionRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<ServicePlanActionResponse>(
+			client,
+			context,
+			$"{ResolveServiceUrl(configuration, "Care", "http://localhost:5019")}/api/care/admin/tasks/{taskId}/start",
+			request,
+			cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception exception)
+	{
+		return Results.Problem(title: "护理任务开始执行失败。", detail: exception.Message, statusCode: StatusCodes.Status502BadGateway);
+	}
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/nursing/tasks/{taskId}/complete", async (string taskId, ServicePlanTaskActionRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<ServicePlanActionResponse>(
+			client,
+			context,
+			$"{ResolveServiceUrl(configuration, "Care", "http://localhost:5019")}/api/care/admin/tasks/{taskId}/complete",
+			request,
+			cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception exception)
+	{
+		return Results.Problem(title: "护理任务完成失败。", detail: exception.Message, statusCode: StatusCodes.Status502BadGateway);
+	}
+}).RequireAuthorization();
+
+app.MapPut("/api/admin/nursing/tasks/{taskId}/note", async (string taskId, SaveServicePlanTaskNoteRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PutJsonAsync<ServicePlanActionResponse>(
+			client,
+			context,
+			$"{ResolveServiceUrl(configuration, "Care", "http://localhost:5019")}/api/care/admin/tasks/{taskId}/note",
+			request,
+			cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception exception)
+	{
+		return Results.Problem(title: "护理任务备注保存失败。", detail: exception.Message, statusCode: StatusCodes.Status502BadGateway);
 	}
 }).RequireAuthorization();
 
@@ -140,6 +347,14 @@ static async Task<T> GetJsonAsync<T>(HttpClient client, HttpContext context, str
 static async Task<T> PostJsonAsync<T>(HttpClient client, HttpContext context, string url, object payload, CancellationToken cancellationToken)
 {
 	using var request = DownstreamHttp.CreateJsonRequest(HttpMethod.Post, url, context, payload);
+	using var response = await client.SendAsync(request, cancellationToken);
+	response.EnsureSuccessStatusCode();
+	return (await response.ReadJsonAsync<T>(cancellationToken))!;
+}
+
+static async Task<T> PutJsonAsync<T>(HttpClient client, HttpContext context, string url, object payload, CancellationToken cancellationToken)
+{
+	using var request = DownstreamHttp.CreateJsonRequest(HttpMethod.Put, url, context, payload);
 	using var response = await client.SendAsync(request, cancellationToken);
 	response.EnsureSuccessStatusCode();
 	return (await response.ReadJsonAsync<T>(cancellationToken))!;

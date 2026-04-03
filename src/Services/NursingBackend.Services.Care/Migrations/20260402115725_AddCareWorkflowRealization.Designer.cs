@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using NursingBackend.Services.Care;
@@ -11,9 +12,11 @@ using NursingBackend.Services.Care;
 namespace NursingBackend.Services.Care.Migrations
 {
     [DbContext(typeof(CareDbContext))]
-    partial class CareDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260402115725_AddCareWorkflowRealization")]
+    partial class AddCareWorkflowRealization
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
