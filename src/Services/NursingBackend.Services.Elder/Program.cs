@@ -18,6 +18,44 @@ app.MapPlatformEndpoints(new PlatformServiceDescriptor(
 	Consumers: ["admin-bff", "family-bff", "care-service", "visit-service", "billing-service"],
 	Capabilities: ["elder-registry", "admission-lifecycle", "family-binding", "resident-profile"]));
 
+app.MapGet("/api/elders", async (HttpContext context, ElderDbContext dbContext, string? name, string? status, string? careLevel, int page = 1, int pageSize = 20) =>
+{
+	var requestContext = context.GetPlatformRequestContext();
+	if (requestContext is null || string.IsNullOrWhiteSpace(requestContext.TenantId))
+	{
+		return Results.Problem(title: "缺少租户上下文。", statusCode: StatusCodes.Status400BadRequest);
+	}
+
+	var query = dbContext.Elders.Where(e => e.TenantId == requestContext.TenantId);
+
+	if (!string.IsNullOrWhiteSpace(name))
+		query = query.Where(e => e.ElderName.Contains(name));
+	if (!string.IsNullOrWhiteSpace(status))
+		query = query.Where(e => e.AdmissionStatus == status);
+	if (!string.IsNullOrWhiteSpace(careLevel))
+		query = query.Where(e => e.CareLevel == careLevel);
+
+	var total = await query.CountAsync();
+
+	var items = await query
+		.OrderBy(e => e.ElderName)
+		.Skip((page - 1) * pageSize)
+		.Take(pageSize)
+		.Select(e => new ElderListItemResponse(
+			ElderId: e.ElderId,
+			TenantId: e.TenantId,
+			ElderName: e.ElderName,
+			Age: e.Age,
+			Gender: e.Gender,
+			CareLevel: e.CareLevel,
+			RoomNumber: e.RoomNumber,
+			AdmissionStatus: e.AdmissionStatus,
+			FamilyContactName: e.FamilyContactName))
+		.ToListAsync();
+
+	return Results.Ok(new ElderListResponse(Items: items, Total: total, Page: page, PageSize: pageSize));
+}).RequireAuthorization();
+
 app.MapPost("/api/elders/admissions", async (HttpContext context, AdmissionCreateRequest request, ElderDbContext dbContext) =>
 {
 	var requestContext = context.GetPlatformRequestContext();

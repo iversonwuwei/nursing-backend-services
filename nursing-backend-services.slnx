@@ -30,6 +30,8 @@
     <Project Path="src/Services/NursingBackend.Services.Staffing/NursingBackend.Services.Staffing.csproj" />
     <Project Path="src/Services/NursingBackend.Services.Tenant/NursingBackend.Services.Tenant.csproj" />
     <Project Path="src/Services/NursingBackend.Services.Visit/NursingBackend.Services.Visit.csproj" />
+<Project Path="src/Services/NursingBackend.Services.Config/NursingBackend.Services.Config.csproj" />
+
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/NursingBackend.ArchitectureTests/NursingBackend.ArchitectureTests.csproj" />

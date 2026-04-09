@@ -59,6 +59,63 @@ app.MapGet("/api/family/elders/{elderId}/today-summary", async (string elderId, 
 	}
 }).RequireAuthorization();
 
+// ── AI Orchestration Proxy ─────────────────────────────────────────────────
+
+app.MapPost("/api/family/ai/today-summary", async (AiFamilyTodaySummaryRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken ct) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<object>(client, context, $"{ResolveServiceUrl(configuration, "AiOrchestration", "http://localhost:5267")}/api/ai/today-summary", request, ct);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "AI 今日摘要生成失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/family/ai/health-explain", async (AiHealthExplainRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken ct) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<object>(client, context, $"{ResolveServiceUrl(configuration, "AiOrchestration", "http://localhost:5267")}/api/ai/health-explain", request, ct);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "AI 健康解读失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/family/ai/visit-assistant", async (AiVisitAssistantRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken ct) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<object>(client, context, $"{ResolveServiceUrl(configuration, "AiOrchestration", "http://localhost:5267")}/api/ai/visit-assistant", request, ct);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "AI 探访助手失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/family/ai/visit-risk", async (AiVisitRiskRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken ct) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<object>(client, context, $"{ResolveServiceUrl(configuration, "AiOrchestration", "http://localhost:5267")}/api/ai/visit-risk", request, ct);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "AI 探访风险评估失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/family/ai/chat", async (AiChatRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken ct) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<object>(client, context, $"{ResolveServiceUrl(configuration, "AiOrchestration", "http://localhost:5267")}/api/ai/family-chat", request, ct);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "AI 问答失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
 app.Run();
 
 static string ResolveServiceUrl(IConfiguration configuration, string serviceName, string fallback)
@@ -69,6 +126,14 @@ static string ResolveServiceUrl(IConfiguration configuration, string serviceName
 static async Task<T> GetJsonAsync<T>(HttpClient client, HttpContext context, string url, CancellationToken cancellationToken)
 {
 	using var request = DownstreamHttp.CreateJsonRequest(HttpMethod.Get, url, context);
+	using var response = await client.SendAsync(request, cancellationToken);
+	response.EnsureSuccessStatusCode();
+	return (await response.ReadJsonAsync<T>(cancellationToken))!;
+}
+
+static async Task<T> PostJsonAsync<T>(HttpClient client, HttpContext context, string url, object payload, CancellationToken cancellationToken)
+{
+	using var request = DownstreamHttp.CreateJsonRequest(HttpMethod.Post, url, context, payload);
 	using var response = await client.SendAsync(request, cancellationToken);
 	response.EnsureSuccessStatusCode();
 	return (await response.ReadJsonAsync<T>(cancellationToken))!;

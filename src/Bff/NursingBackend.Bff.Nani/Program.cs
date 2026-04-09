@@ -49,6 +49,52 @@ app.MapGet("/api/nani/elders/{elderId}/task-feed", async (string elderId, HttpCo
 	}
 }).RequireAuthorization();
 
+// ── AI Orchestration Proxy ─────────────────────────────────────────────────
+
+app.MapPost("/api/nani/ai/shift-summary", async (AiShiftSummaryRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken ct) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<object>(client, context, $"{ResolveServiceUrl(configuration, "AiOrchestration", "http://localhost:5267")}/api/ai/shift-summary", request, ct);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "AI 交班摘要生成失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/nani/ai/care-copilot", async (AiAlertSuggestionRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken ct) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<object>(client, context, $"{ResolveServiceUrl(configuration, "AiOrchestration", "http://localhost:5267")}/api/ai/care-copilot", request, ct);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "AI 护理助手失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/nani/ai/handover-draft", async (AiHandoverDraftRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken ct) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<object>(client, context, $"{ResolveServiceUrl(configuration, "AiOrchestration", "http://localhost:5267")}/api/ai/handover-draft", request, ct);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "AI 交接班草稿生成失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/nani/ai/escalation-draft", async (AiEscalationDraftRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken ct) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<object>(client, context, $"{ResolveServiceUrl(configuration, "AiOrchestration", "http://localhost:5267")}/api/ai/escalation-draft", request, ct);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "AI 升级草稿生成失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
 app.Run();
 
 static string ResolveServiceUrl(IConfiguration configuration, string serviceName, string fallback)
@@ -59,6 +105,14 @@ static string ResolveServiceUrl(IConfiguration configuration, string serviceName
 static async Task<T> GetJsonAsync<T>(HttpClient client, HttpContext context, string url, CancellationToken cancellationToken)
 {
 	using var request = DownstreamHttp.CreateJsonRequest(HttpMethod.Get, url, context);
+	using var response = await client.SendAsync(request, cancellationToken);
+	response.EnsureSuccessStatusCode();
+	return (await response.ReadJsonAsync<T>(cancellationToken))!;
+}
+
+static async Task<T> PostJsonAsync<T>(HttpClient client, HttpContext context, string url, object payload, CancellationToken cancellationToken)
+{
+	using var request = DownstreamHttp.CreateJsonRequest(HttpMethod.Post, url, context, payload);
 	using var response = await client.SendAsync(request, cancellationToken);
 	response.EnsureSuccessStatusCode();
 	return (await response.ReadJsonAsync<T>(cancellationToken))!;

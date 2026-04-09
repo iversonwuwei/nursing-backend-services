@@ -13,6 +13,13 @@ builder.Services.AddDbContext<CareDbContext>(options =>
 	options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres") ?? "Host=localhost;Port=5432;Database=nursing_platform;Username=nursing;Password=nursing"));
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+	var dbContext = scope.ServiceProvider.GetRequiredService<CareDbContext>();
+	await dbContext.Database.EnsureCreatedAsync();
+}
+
 app.MapPlatformEndpoints(new PlatformServiceDescriptor(
 	ServiceName: "care-service",
 	ServiceType: "domain-service",

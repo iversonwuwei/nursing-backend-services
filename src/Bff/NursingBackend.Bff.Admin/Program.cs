@@ -329,6 +329,559 @@ app.MapPut("/api/admin/nursing/tasks/{taskId}/note", async (string taskId, SaveS
 	}
 }).RequireAuthorization();
 
+// ── Content Management Proxy (Config Service) ──────────────────────────────
+
+app.MapGet("/api/admin/static-texts", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken, string? ns, string? locale, string? keyword, int page = 1, int pageSize = 20) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var qs = $"?page={page}&pageSize={pageSize}";
+		if (!string.IsNullOrWhiteSpace(ns)) qs += $"&ns={Uri.EscapeDataString(ns)}";
+		if (!string.IsNullOrWhiteSpace(locale)) qs += $"&locale={Uri.EscapeDataString(locale)}";
+		if (!string.IsNullOrWhiteSpace(keyword)) qs += $"&keyword={Uri.EscapeDataString(keyword)}";
+		var response = await GetJsonAsync<StaticTextListResponse>(client, context, $"{ResolveServiceUrl(configuration, "Config", "http://localhost:5290")}/api/config/static-texts{qs}", cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "静态文本查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/static-texts/{id}", async (string id, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await GetJsonAsync<StaticTextResponse>(client, context, $"{ResolveServiceUrl(configuration, "Config", "http://localhost:5290")}/api/config/static-texts/{id}", cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "静态文本查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/static-texts", async (StaticTextCreateRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<StaticTextResponse>(client, context, $"{ResolveServiceUrl(configuration, "Config", "http://localhost:5290")}/api/config/static-texts", request, cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "静态文本创建失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPut("/api/admin/static-texts/{id}", async (string id, StaticTextUpdateRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PutJsonAsync<StaticTextResponse>(client, context, $"{ResolveServiceUrl(configuration, "Config", "http://localhost:5290")}/api/config/static-texts/{id}", request, cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "静态文本更新失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapDelete("/api/admin/static-texts/{id}", async (string id, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		using var req = DownstreamHttp.CreateJsonRequest(HttpMethod.Delete, $"{ResolveServiceUrl(configuration, "Config", "http://localhost:5290")}/api/config/static-texts/{id}", context);
+		using var resp = await client.SendAsync(req, cancellationToken);
+		resp.EnsureSuccessStatusCode();
+		return Results.Ok(new { success = true });
+	}
+	catch (Exception ex) { return Results.Problem(title: "静态文本删除失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/static-texts/namespaces", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await GetJsonAsync<List<string>>(client, context, $"{ResolveServiceUrl(configuration, "Config", "http://localhost:5290")}/api/config/static-texts/namespaces", cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "命名空间查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/option-groups", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken, string? status, string? keyword) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var qs = "";
+		if (!string.IsNullOrWhiteSpace(status)) qs += $"?status={Uri.EscapeDataString(status)}";
+		if (!string.IsNullOrWhiteSpace(keyword)) qs += $"{(qs.Length > 0 ? "&" : "?")}keyword={Uri.EscapeDataString(keyword)}";
+		var response = await GetJsonAsync<OptionGroupListResponse>(client, context, $"{ResolveServiceUrl(configuration, "Config", "http://localhost:5290")}/api/config/option-groups{qs}", cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "选项分组查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/option-groups", async (OptionGroupCreateRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<OptionGroupResponse>(client, context, $"{ResolveServiceUrl(configuration, "Config", "http://localhost:5290")}/api/config/option-groups", request, cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "选项分组创建失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPut("/api/admin/option-groups/{id}", async (string id, OptionGroupUpdateRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PutJsonAsync<OptionGroupResponse>(client, context, $"{ResolveServiceUrl(configuration, "Config", "http://localhost:5290")}/api/config/option-groups/{id}", request, cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "选项分组更新失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapDelete("/api/admin/option-groups/{id}", async (string id, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		using var req = DownstreamHttp.CreateJsonRequest(HttpMethod.Delete, $"{ResolveServiceUrl(configuration, "Config", "http://localhost:5290")}/api/config/option-groups/{id}", context);
+		using var resp = await client.SendAsync(req, cancellationToken);
+		resp.EnsureSuccessStatusCode();
+		return Results.Ok(new { success = true });
+	}
+	catch (Exception ex) { return Results.Problem(title: "选项分组删除失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/option-groups/{groupId}/items", async (string groupId, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await GetJsonAsync<List<OptionItemResponse>>(client, context, $"{ResolveServiceUrl(configuration, "Config", "http://localhost:5290")}/api/config/option-groups/{groupId}/items", cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "选项列表查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/option-groups/{groupId}/items", async (string groupId, OptionItemCreateRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<OptionItemResponse>(client, context, $"{ResolveServiceUrl(configuration, "Config", "http://localhost:5290")}/api/config/option-groups/{groupId}/items", request, cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "选项创建失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/audit-logs", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken, string? resourceType, string? operatorId, int page = 1, int pageSize = 20) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var qs = $"?page={page}&pageSize={pageSize}";
+		if (!string.IsNullOrWhiteSpace(resourceType)) qs += $"&resourceType={Uri.EscapeDataString(resourceType)}";
+		if (!string.IsNullOrWhiteSpace(operatorId)) qs += $"&operatorId={Uri.EscapeDataString(operatorId)}";
+		var response = await GetJsonAsync<ContentAuditLogListResponse>(client, context, $"{ResolveServiceUrl(configuration, "Config", "http://localhost:5290")}/api/config/audit-logs{qs}", cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "操作日志查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+// ── Option Item CRUD Proxy (Config Service) ────────────────────────────────
+
+app.MapPut("/api/admin/option-groups/{groupId}/items/{itemId}", async (string groupId, string itemId, OptionItemUpdateRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PutJsonAsync<OptionItemResponse>(client, context, $"{ResolveServiceUrl(configuration, "Config", "http://localhost:5290")}/api/config/option-groups/{groupId}/items/{itemId}", request, cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "选项更新失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapDelete("/api/admin/option-groups/{groupId}/items/{itemId}", async (string groupId, string itemId, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		using var req = DownstreamHttp.CreateJsonRequest(HttpMethod.Delete, $"{ResolveServiceUrl(configuration, "Config", "http://localhost:5290")}/api/config/option-groups/{groupId}/items/{itemId}", context);
+		using var resp = await client.SendAsync(req, cancellationToken);
+		resp.EnsureSuccessStatusCode();
+		return Results.Ok(new { success = true });
+	}
+	catch (Exception ex) { return Results.Problem(title: "选项删除失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPatch("/api/admin/option-groups/{groupId}/items/{itemId}/toggle", async (string groupId, string itemId, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		using var req = DownstreamHttp.CreateJsonRequest(HttpMethod.Patch, $"{ResolveServiceUrl(configuration, "Config", "http://localhost:5290")}/api/config/option-groups/{groupId}/items/{itemId}/toggle", context);
+		using var resp = await client.SendAsync(req, cancellationToken);
+		resp.EnsureSuccessStatusCode();
+		return Results.Ok(await resp.ReadJsonAsync<OptionItemResponse>(cancellationToken));
+	}
+	catch (Exception ex) { return Results.Problem(title: "选项状态切换失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPut("/api/admin/option-groups/{groupId}/items/reorder", async (string groupId, OptionItemReorderRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PutJsonAsync<List<OptionItemResponse>>(client, context, $"{ResolveServiceUrl(configuration, "Config", "http://localhost:5290")}/api/config/option-groups/{groupId}/items/reorder", request, cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "选项排序失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/audit-logs/{resourceType}/{resourceId}", async (string resourceType, string resourceId, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await GetJsonAsync<ContentAuditLogListResponse>(client, context, $"{ResolveServiceUrl(configuration, "Config", "http://localhost:5290")}/api/config/audit-logs/{Uri.EscapeDataString(resourceType)}/{Uri.EscapeDataString(resourceId)}", cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "资源审计日志查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+// ── Elder Service Proxy ────────────────────────────────────────────────────
+
+app.MapGet("/api/admin/elders", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken, string? name, string? status, string? careLevel, int page = 1, int pageSize = 20) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var qs = $"?page={page}&pageSize={pageSize}";
+		if (!string.IsNullOrWhiteSpace(name)) qs += $"&name={Uri.EscapeDataString(name)}";
+		if (!string.IsNullOrWhiteSpace(status)) qs += $"&status={Uri.EscapeDataString(status)}";
+		if (!string.IsNullOrWhiteSpace(careLevel)) qs += $"&careLevel={Uri.EscapeDataString(careLevel)}";
+		var response = await GetJsonAsync<ElderListResponse>(client, context, $"{ResolveServiceUrl(configuration, "Elder", "http://localhost:5062")}/api/elders{qs}", cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "老人列表查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/elders/{elderId}", async (string elderId, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await GetJsonAsync<ElderProfileSummaryResponse>(client, context, $"{ResolveServiceUrl(configuration, "Elder", "http://localhost:5062")}/api/elders/{Uri.EscapeDataString(elderId)}", cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "老人详情查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+// ── Health Service Proxy ───────────────────────────────────────────────────
+
+app.MapGet("/api/admin/elders/{elderId}/health-summary", async (string elderId, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await GetJsonAsync<HealthArchiveSummaryResponse>(client, context, $"{ResolveServiceUrl(configuration, "Health", "http://localhost:5197")}/api/health/elders/{Uri.EscapeDataString(elderId)}/summary", cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "健康摘要查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+// ── Billing Service Proxy ──────────────────────────────────────────────────
+
+app.MapGet("/api/admin/elders/{elderId}/invoices", async (string elderId, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await GetJsonAsync<List<BillingInvoiceResponse>>(client, context, $"{ResolveServiceUrl(configuration, "Billing", "http://localhost:5253")}/api/billing/elders/{Uri.EscapeDataString(elderId)}/invoices", cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "账单列表查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/invoices/{invoiceId}", async (string invoiceId, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await GetJsonAsync<BillingInvoiceResponse>(client, context, $"{ResolveServiceUrl(configuration, "Billing", "http://localhost:5253")}/api/billing/invoices/{Uri.EscapeDataString(invoiceId)}", cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "账单详情查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/billing/observability", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await GetJsonAsync<BillingObservabilityResponse>(client, context, $"{ResolveServiceUrl(configuration, "Billing", "http://localhost:5253")}/api/billing/observability", cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "账单可观测数据查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+// ── Visit Service Proxy ────────────────────────────────────────────────────
+
+app.MapGet("/api/admin/elders/{elderId}/appointments", async (string elderId, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await GetJsonAsync<List<VisitAppointmentResponse>>(client, context, $"{ResolveServiceUrl(configuration, "Visit", "http://localhost:5050")}/api/visits/elders/{Uri.EscapeDataString(elderId)}/appointments", cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "探访预约查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+// ── Notification Service Proxy ─────────────────────────────────────────────
+
+app.MapGet("/api/admin/notifications", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken, string? audience, string? audienceKey) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var qs = "";
+		if (!string.IsNullOrWhiteSpace(audience)) qs += $"?audience={Uri.EscapeDataString(audience)}";
+		if (!string.IsNullOrWhiteSpace(audienceKey)) qs += $"{(qs.Length > 0 ? "&" : "?")}audienceKey={Uri.EscapeDataString(audienceKey)}";
+		var response = await GetJsonAsync<List<NotificationMessageResponse>>(client, context, $"{ResolveServiceUrl(configuration, "Notification", "http://localhost:5144")}/api/notifications{qs}", cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "通知列表查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/notifications/observability", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await GetJsonAsync<NotificationObservabilityResponse>(client, context, $"{ResolveServiceUrl(configuration, "Notification", "http://localhost:5144")}/api/notifications/observability", cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "通知可观测数据查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+// ── Tenant Service Proxy ───────────────────────────────────────────────────
+
+app.MapGet("/api/admin/tenants", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await GetJsonAsync<List<TenantDescriptorResponse>>(client, context, $"{ResolveServiceUrl(configuration, "Tenant", "http://localhost:5186")}/api/tenants", cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "租户列表查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/tenants/{tenantId}", async (string tenantId, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await GetJsonAsync<TenantDescriptorResponse>(client, context, $"{ResolveServiceUrl(configuration, "Tenant", "http://localhost:5186")}/api/tenants/{Uri.EscapeDataString(tenantId)}", cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "租户详情查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+// ── AI Orchestration Proxy ─────────────────────────────────────────────────
+
+app.MapPost("/api/admin/ai/dashboard-insights", async (AiDashboardInsightsRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken ct) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<object>(client, context, $"{ResolveServiceUrl(configuration, "AiOrchestration", "http://localhost:5267")}/api/ai/dashboard-insights", request, ct);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "AI Dashboard 分析失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/ai/health-risk", async (AiHealthRiskRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken ct) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<object>(client, context, $"{ResolveServiceUrl(configuration, "AiOrchestration", "http://localhost:5267")}/api/ai/health-risk", request, ct);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "AI 健康风险分析失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/ai/alert-suggestion", async (AiAlertSuggestionRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken ct) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<object>(client, context, $"{ResolveServiceUrl(configuration, "AiOrchestration", "http://localhost:5267")}/api/ai/alert-suggestion", request, ct);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "AI 报警建议失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/ai/task-priority", async (AiTaskPriorityRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken ct) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<object>(client, context, $"{ResolveServiceUrl(configuration, "AiOrchestration", "http://localhost:5267")}/api/ai/task-priority", request, ct);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "AI 任务优先级排序失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/ai/admission-assessment", async (AiAdmissionAssessmentRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken ct) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<object>(client, context, $"{ResolveServiceUrl(configuration, "AiOrchestration", "http://localhost:5267")}/api/ai/admission-assessment", request, ct);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "AI 入住评估失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/ai/ops-report", async (AiOpsReportRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken ct) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<object>(client, context, $"{ResolveServiceUrl(configuration, "AiOrchestration", "http://localhost:5267")}/api/ai/ops-report", request, ct);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "AI 运营报告生成失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/ai/financial-insights", async (AiResourceInsightsRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken ct) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<object>(client, context, $"{ResolveServiceUrl(configuration, "AiOrchestration", "http://localhost:5267")}/api/ai/financial-insights", request, ct);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "AI 财务分析失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/ai/device-insights", async (AiAlertSuggestionRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken ct) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<object>(client, context, $"{ResolveServiceUrl(configuration, "AiOrchestration", "http://localhost:5267")}/api/ai/device-insights", request, ct);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "AI 设备分析失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/ai/incident-analysis", async (AiAlertSuggestionRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken ct) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<object>(client, context, $"{ResolveServiceUrl(configuration, "AiOrchestration", "http://localhost:5267")}/api/ai/incident-analysis", request, ct);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "AI 事故分析失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/ai/resource-insights", async (AiResourceInsightsRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken ct) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<object>(client, context, $"{ResolveServiceUrl(configuration, "AiOrchestration", "http://localhost:5267")}/api/ai/resource-insights", request, ct);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "AI 资源分析失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/ai/chat", async (AiChatRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken ct) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<object>(client, context, $"{ResolveServiceUrl(configuration, "AiOrchestration", "http://localhost:5267")}/api/ai/chat", request, ct);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "AI 问答失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/ai/elder-detail-action", async (AiAlertSuggestionRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken ct) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<object>(client, context, $"{ResolveServiceUrl(configuration, "AiOrchestration", "http://localhost:5267")}/api/ai/elder-detail-action", request, ct);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "AI 老人详情分析失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/ai/rules", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken ct) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await GetJsonAsync<object>(client, context, $"{ResolveServiceUrl(configuration, "AiOrchestration", "http://localhost:5267")}/api/ai/rules", ct);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "AI 规则查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPatch("/api/admin/ai/rules/{ruleId}/toggle", async (string ruleId, AiRuleToggleRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken ct) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		using var req = DownstreamHttp.CreateJsonRequest(HttpMethod.Patch, $"{ResolveServiceUrl(configuration, "AiOrchestration", "http://localhost:5267")}/api/ai/rules/{ruleId}/toggle", context, request);
+		using var resp = await client.SendAsync(req, ct);
+		resp.EnsureSuccessStatusCode();
+		return Results.Ok(await resp.ReadJsonAsync<object>(ct));
+	}
+	catch (Exception ex) { return Results.Problem(title: "AI 规则切换失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/ai/models/status", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken ct) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await GetJsonAsync<object>(client, context, $"{ResolveServiceUrl(configuration, "AiOrchestration", "http://localhost:5267")}/api/ai/models/status", ct);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "AI 模型状态查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/ai/audit-logs", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken ct, string? capability, int page = 1, int pageSize = 20) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var qs = $"?page={page}&pageSize={pageSize}";
+		if (!string.IsNullOrWhiteSpace(capability)) qs += $"&capability={Uri.EscapeDataString(capability)}";
+		var response = await GetJsonAsync<object>(client, context, $"{ResolveServiceUrl(configuration, "AiOrchestration", "http://localhost:5267")}/api/ai/audit-logs{qs}", ct);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "AI 审计日志查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/ai/audit-logs/{auditId}", async (string auditId, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken ct) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await GetJsonAsync<object>(client, context, $"{ResolveServiceUrl(configuration, "AiOrchestration", "http://localhost:5267")}/api/ai/audit-logs/{Uri.EscapeDataString(auditId)}", ct);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "AI 审计详情查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
 app.Run();
 
 static string ResolveServiceUrl(IConfiguration configuration, string serviceName, string fallback)
