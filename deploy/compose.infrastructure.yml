@@ -2,13 +2,14 @@ services:
   postgres:
     image: postgres:16
     environment:
-      POSTGRES_DB: nursing_platform
+      POSTGRES_DB: postgres
       POSTGRES_USER: nursing
       POSTGRES_PASSWORD: nursing
     ports:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d
 
   redis:
     image: redis:7

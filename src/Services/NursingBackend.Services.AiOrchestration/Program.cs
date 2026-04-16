@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using NursingBackend.BuildingBlocks.Context;
 using NursingBackend.BuildingBlocks.Contracts;
 using NursingBackend.BuildingBlocks.Hosting;
+using NursingBackend.BuildingBlocks.Persistence;
 using NursingBackend.Services.AiOrchestration;
 using StackExchange.Redis;
 
@@ -16,8 +17,7 @@ builder.Services.Configure<AiModelsConfig>(builder.Configuration.GetSection("AiM
 builder.Services.Configure<CacheTtlConfig>(builder.Configuration.GetSection("CacheTtl"));
 
 // ── Database ───────────────────────────────────────────────────────────────
-var connectionString = builder.Configuration.GetConnectionString("Postgres")
-	?? "Host=localhost;Port=5432;Database=nursing_platform;Username=nursing;Password=nursing";
+var connectionString = PostgresConnectionStrings.Resolve(builder.Configuration, "AiPostgres", "nursing_ai");
 builder.Services.AddDbContext<AiDbContext>(options => options.UseNpgsql(connectionString));
 
 // ── Redis Cache ────────────────────────────────────────────────────────────

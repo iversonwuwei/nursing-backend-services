@@ -53,7 +53,7 @@ public static class VisitOutboxNotificationDispatcher
 			.ToListAsync(cancellationToken);
 
 		var correlationId = context.GetPlatformRequestContext()?.CorrelationId ?? Guid.NewGuid().ToString("N");
-		var dispatchUrl = $"{ResolveServiceUrl(configuration, "Notification", "http://localhost:5317")}/api/notifications/dispatch";
+		var dispatchUrl = $"{ResolveServiceUrl(configuration, "Notification", "http://localhost:5144")}/api/notifications/dispatch";
 		var dispatchedCount = 0;
 
 		foreach (var message in pending)

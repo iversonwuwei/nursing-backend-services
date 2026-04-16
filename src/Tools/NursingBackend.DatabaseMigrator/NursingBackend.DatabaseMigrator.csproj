@@ -18,12 +18,16 @@
   </ItemGroup>
 
   <ItemGroup>
+<ProjectReference Include="..\..\BuildingBlocks\NursingBackend.BuildingBlocks\NursingBackend.BuildingBlocks.csproj" />
+
     <ProjectReference Include="..\..\Services\NursingBackend.Services.Elder\NursingBackend.Services.Elder.csproj" />
     <ProjectReference Include="..\..\Services\NursingBackend.Services.Health\NursingBackend.Services.Health.csproj" />
     <ProjectReference Include="..\..\Services\NursingBackend.Services.Care\NursingBackend.Services.Care.csproj" />
     <ProjectReference Include="..\..\Services\NursingBackend.Services.Visit\NursingBackend.Services.Visit.csproj" />
     <ProjectReference Include="..\..\Services\NursingBackend.Services.Billing\NursingBackend.Services.Billing.csproj" />
     <ProjectReference Include="..\..\Services\NursingBackend.Services.Notification\NursingBackend.Services.Notification.csproj" />
+<ProjectReference Include="..\..\Services\NursingBackend.Services.Operations\NursingBackend.Services.Operations.csproj" />
+
   </ItemGroup>
 
 </Project>

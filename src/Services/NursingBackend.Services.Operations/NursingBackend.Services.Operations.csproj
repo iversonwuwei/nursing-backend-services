@@ -1,6 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
+<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.4">
+  <PrivateAssets>all</PrivateAssets>
+  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+</PackageReference>
+<PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
+
     <ProjectReference Include="..\..\BuildingBlocks\NursingBackend.BuildingBlocks\NursingBackend.BuildingBlocks.csproj" />
   </ItemGroup>
 

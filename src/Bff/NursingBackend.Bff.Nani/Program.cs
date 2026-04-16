@@ -28,12 +28,12 @@ app.MapGet("/api/nani/elders/{elderId}/task-feed", async (string elderId, HttpCo
 		var feed = await GetJsonAsync<NaniTaskFeedResponse>(
 			client,
 			context,
-			$"{ResolveServiceUrl(configuration, "Care", "http://localhost:5311")}/api/care/elders/{elderId}/task-feed",
+			$"{ResolveServiceUrl(configuration, "Care", "http://localhost:5019")}/api/care/elders/{elderId}/task-feed",
 			cancellationToken);
 		var notifications = await GetJsonAsync<IReadOnlyList<NotificationMessageResponse>>(
 			client,
 			context,
-			$"{ResolveServiceUrl(configuration, "Notification", "http://localhost:5317")}/api/notifications?audience=nani&audienceKey={elderId}",
+			$"{ResolveServiceUrl(configuration, "Notification", "http://localhost:5144")}/api/notifications?audience=nani&audienceKey={elderId}",
 			cancellationToken) ?? [];
 
 		return Results.Ok(new NaniTaskBoardResponse(

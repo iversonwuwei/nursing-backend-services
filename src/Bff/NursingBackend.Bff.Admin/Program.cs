@@ -51,7 +51,12 @@ app.MapPost("/api/admin/admissions/onboard", async (AdminAdmissionOnboardRequest
 				RoomNumber: request.RoomNumber,
 				FamilyContactName: request.FamilyContactName,
 				FamilyContactPhone: request.FamilyContactPhone,
-				MedicalAlerts: request.MedicalAlerts),
+				MedicalAlerts: request.MedicalAlerts,
+				EntrustmentType: request.EntrustmentType,
+				EntrustmentOrganization: request.EntrustmentOrganization,
+				MonthlySubsidy: request.MonthlySubsidy,
+				ServiceItems: request.ServiceItems,
+				ServiceNotes: request.ServiceNotes),
 			cancellationToken);
 
 		var healthArchive = await PostJsonAsync<HealthArchiveSummaryResponse>(
@@ -566,6 +571,17 @@ app.MapGet("/api/admin/elders", async (HttpContext context, IHttpClientFactory h
 	catch (Exception ex) { return Results.Problem(title: "老人列表查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
 }).RequireAuthorization();
 
+app.MapPost("/api/admin/elders/admissions", async (AdmissionCreateRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<AdmissionRecordResponse>(client, context, $"{ResolveServiceUrl(configuration, "Elder", "http://localhost:5062")}/api/elders/admissions", request, cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "长者入住建档失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
 app.MapGet("/api/admin/elders/{elderId}", async (string elderId, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
 {
 	try
@@ -575,6 +591,17 @@ app.MapGet("/api/admin/elders/{elderId}", async (string elderId, HttpContext con
 		return Results.Ok(response);
 	}
 	catch (Exception ex) { return Results.Problem(title: "老人详情查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPut("/api/admin/elders/{elderId}", async (string elderId, ElderProfileUpdateRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PutJsonAsync<ElderProfileSummaryResponse>(client, context, $"{ResolveServiceUrl(configuration, "Elder", "http://localhost:5062")}/api/elders/{Uri.EscapeDataString(elderId)}", request, cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "长者主档更新失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
 }).RequireAuthorization();
 
 // ── Health Service Proxy ───────────────────────────────────────────────────
@@ -591,6 +618,43 @@ app.MapGet("/api/admin/elders/{elderId}/health-summary", async (string elderId, 
 }).RequireAuthorization();
 
 // ── Billing Service Proxy ──────────────────────────────────────────────────
+
+app.MapGet("/api/admin/finance/summary", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await GetJsonAsync<AdminFinanceSummaryResponse>(client, context, $"{ResolveServiceUrl(configuration, "Billing", "http://localhost:5253")}/api/billing/summary", cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "财务 summary 查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/finance/invoices", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken, string? status, string? notificationStatus) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var query = new List<string>();
+		if (!string.IsNullOrWhiteSpace(status)) query.Add($"status={Uri.EscapeDataString(status)}");
+		if (!string.IsNullOrWhiteSpace(notificationStatus)) query.Add($"notificationStatus={Uri.EscapeDataString(notificationStatus)}");
+		var qs = query.Count > 0 ? $"?{string.Join("&", query)}" : string.Empty;
+		var response = await GetJsonAsync<List<BillingInvoiceResponse>>(client, context, $"{ResolveServiceUrl(configuration, "Billing", "http://localhost:5253")}/api/billing/invoices{qs}", cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "财务发票队列查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/finance/invoices", async (BillingInvoiceCreateRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<BillingInvoiceResponse>(client, context, $"{ResolveServiceUrl(configuration, "Billing", "http://localhost:5253")}/api/billing/invoices", request, cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "财务发票创建失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
 
 app.MapGet("/api/admin/elders/{elderId}/invoices", async (string elderId, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
 {
@@ -640,6 +704,32 @@ app.MapGet("/api/admin/elders/{elderId}/appointments", async (string elderId, Ht
 
 // ── Notification Service Proxy ─────────────────────────────────────────────
 
+app.MapGet("/api/admin/notifications/summary", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await GetJsonAsync<AdminNotificationSummaryResponse>(client, context, $"{ResolveServiceUrl(configuration, "Notification", "http://localhost:5144")}/api/notifications/summary", cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "通知 summary 查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/notifications/queue", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken, string? category, string? status) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var query = new List<string>();
+		if (!string.IsNullOrWhiteSpace(category)) query.Add($"category={Uri.EscapeDataString(category)}");
+		if (!string.IsNullOrWhiteSpace(status)) query.Add($"status={Uri.EscapeDataString(status)}");
+		var qs = query.Count > 0 ? $"?{string.Join("&", query)}" : string.Empty;
+		var response = await GetJsonAsync<List<NotificationMessageResponse>>(client, context, $"{ResolveServiceUrl(configuration, "Notification", "http://localhost:5144")}/api/notifications{qs}", cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "通知队列查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
 app.MapGet("/api/admin/notifications", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken, string? audience, string? audienceKey) =>
 {
 	try
@@ -665,6 +755,46 @@ app.MapGet("/api/admin/notifications/observability", async (HttpContext context,
 	catch (Exception ex) { return Results.Problem(title: "通知可观测数据查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
 }).RequireAuthorization();
 
+// ── Operations / Alert Service Proxy ──────────────────────────────────────
+
+app.MapGet("/api/admin/alerts/summary", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await GetJsonAsync<AdminAlertSummaryResponse>(client, context, $"{ResolveServiceUrl(configuration, "Operations", "http://localhost:5211")}/api/operations/alerts/summary", cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "报警 summary 查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/alerts", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken, string? module, string? level, string? status) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var query = new List<string>();
+		if (!string.IsNullOrWhiteSpace(module)) query.Add($"module={Uri.EscapeDataString(module)}");
+		if (!string.IsNullOrWhiteSpace(level)) query.Add($"level={Uri.EscapeDataString(level)}");
+		if (!string.IsNullOrWhiteSpace(status)) query.Add($"status={Uri.EscapeDataString(status)}");
+		var qs = query.Count > 0 ? $"?{string.Join("&", query)}" : string.Empty;
+		var response = await GetJsonAsync<List<AdminAlertQueueItemResponse>>(client, context, $"{ResolveServiceUrl(configuration, "Operations", "http://localhost:5211")}/api/operations/alerts{qs}", cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "报警队列查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/alerts/{alertId}/actions", async (string alertId, AdminAlertActionRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<AdminAlertQueueItemResponse>(client, context, $"{ResolveServiceUrl(configuration, "Operations", "http://localhost:5211")}/api/operations/alerts/{Uri.EscapeDataString(alertId)}/actions", request, cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "报警动作提交失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
 // ── Tenant Service Proxy ───────────────────────────────────────────────────
 
 app.MapGet("/api/admin/tenants", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
@@ -687,6 +817,136 @@ app.MapGet("/api/admin/tenants/{tenantId}", async (string tenantId, HttpContext 
 		return Results.Ok(response);
 	}
 	catch (Exception ex) { return Results.Problem(title: "租户详情查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/dashboard/overview", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+
+		var elderTask = GetJsonAsync<ElderListResponse>(
+			client,
+			context,
+			$"{ResolveServiceUrl(configuration, "Elder", "http://localhost:5062")}/api/elders?page=1&pageSize=1",
+			cancellationToken);
+
+		var tenantTask = GetJsonAsync<List<TenantDescriptorResponse>>(
+			client,
+			context,
+			$"{ResolveServiceUrl(configuration, "Tenant", "http://localhost:5186")}/api/tenants",
+			cancellationToken);
+
+		var financeTask = GetJsonAsync<AdminFinanceSummaryResponse>(
+			client,
+			context,
+			$"{ResolveServiceUrl(configuration, "Billing", "http://localhost:5253")}/api/billing/summary",
+			cancellationToken);
+
+		var notificationTask = GetJsonAsync<AdminNotificationSummaryResponse>(
+			client,
+			context,
+			$"{ResolveServiceUrl(configuration, "Notification", "http://localhost:5144")}/api/notifications/summary",
+			cancellationToken);
+
+		var alertTask = GetJsonAsync<AdminAlertSummaryResponse>(
+			client,
+			context,
+			$"{ResolveServiceUrl(configuration, "Operations", "http://localhost:5211")}/api/operations/alerts/summary",
+			cancellationToken);
+
+		var workflowTask = GetJsonAsync<NursingWorkflowBoardResponse>(
+			client,
+			context,
+			$"{ResolveServiceUrl(configuration, "Care", "http://localhost:5019")}/api/care/admin/workflow-board",
+			cancellationToken);
+
+		await Task.WhenAll(elderTask, tenantTask, financeTask, notificationTask, alertTask, workflowTask);
+
+		var elderResponse = await elderTask;
+		var tenantResponse = await tenantTask;
+		var financeResponse = await financeTask;
+		var notificationResponse = await notificationTask;
+		var alertResponse = await alertTask;
+		var workflowResponse = await workflowTask;
+
+		var pendingAlerts = alertResponse.Modules.Sum(module => module.Pending + module.Processing);
+		var workflowPendingCount = workflowResponse.Schedule.PendingReviewPlans + workflowResponse.Schedule.UnassignedPlans;
+		var alertModules = alertResponse.Modules
+			.Select(module => new AdminDashboardAlertModuleBreakdownResponse(
+				Label: module.Module,
+				Pending: module.Pending,
+				Processing: module.Processing,
+				Resolved: module.Resolved,
+				Critical: module.Critical,
+				TotalOpen: module.Pending + module.Processing))
+			.OrderByDescending(module => module.TotalOpen)
+			.ThenBy(module => module.Label)
+			.ToArray();
+
+		var notificationBreakdown = new[]
+		{
+			new AdminDashboardMetricItemResponse("待发送", notificationResponse.Queued),
+			new AdminDashboardMetricItemResponse("已送达", notificationResponse.Delivered),
+			new AdminDashboardMetricItemResponse("发送失败", notificationResponse.Failed),
+			new AdminDashboardMetricItemResponse("广播通知", notificationResponse.Broadcasts),
+			new AdminDashboardMetricItemResponse("定时提醒", notificationResponse.ScheduledReminders),
+		};
+
+		var financeBreakdown = new[]
+		{
+			new AdminDashboardMetricItemResponse("待复核", financeResponse.PendingReview),
+			new AdminDashboardMetricItemResponse("已开票", financeResponse.Issued),
+			new AdminDashboardMetricItemResponse("已逾期", financeResponse.Overdue),
+			new AdminDashboardMetricItemResponse("待归档", financeResponse.PendingArchive),
+			new AdminDashboardMetricItemResponse("动作必做", financeResponse.ActionRequired),
+		};
+
+		var workflowBreakdown = new[]
+		{
+			new AdminDashboardMetricItemResponse("活跃计划", workflowResponse.Schedule.ActivePlans),
+			new AdminDashboardMetricItemResponse("待复核计划", workflowResponse.Schedule.PendingReviewPlans),
+			new AdminDashboardMetricItemResponse("未分配计划", workflowResponse.Schedule.UnassignedPlans),
+			new AdminDashboardMetricItemResponse("已发布排班", workflowResponse.Schedule.PublishedAssignments),
+			new AdminDashboardMetricItemResponse("已完成任务", workflowResponse.Observability.CompletedTasks),
+		};
+
+		var staffLeaderboard = workflowResponse.Tasks
+			.Where(task => !string.IsNullOrWhiteSpace(task.OwnerName))
+			.GroupBy(task => new { task.OwnerName, task.OwnerRole })
+			.Select(group =>
+			{
+				var tasks = group.Count();
+				var completed = group.Count(task => task.Status == "已完成");
+				var completionRate = tasks == 0 ? 0 : (int)Math.Round(completed * 100d / tasks, MidpointRounding.AwayFromZero);
+				return new AdminDashboardStaffLeaderboardItemResponse(
+					Name: group.Key.OwnerName,
+					Role: group.Key.OwnerRole,
+					Tasks: tasks,
+					Completed: completed,
+					CompletionRate: completionRate,
+					Trend: completionRate >= 95 ? "up" : "down");
+			})
+			.OrderByDescending(item => item.CompletionRate)
+			.ThenByDescending(item => item.Completed)
+			.ThenBy(item => item.Name)
+			.Take(7)
+			.ToArray();
+
+		return Results.Ok(new AdminDashboardOverviewResponse(
+			GeneratedAtUtc: DateTimeOffset.UtcNow,
+			Kpis: new AdminDashboardKpiResponse(
+				ElderCount: elderResponse.Total,
+				TenantCount: tenantResponse.Count,
+				PendingAlerts: pendingAlerts,
+				WorkflowPendingCount: workflowPendingCount),
+			AlertModules: alertModules,
+			NotificationBreakdown: notificationBreakdown,
+			FinanceBreakdown: financeBreakdown,
+			WorkflowBreakdown: workflowBreakdown,
+			StaffLeaderboard: staffLeaderboard));
+	}
+	catch (Exception ex) { return Results.Problem(title: "Dashboard 聚合查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
 }).RequireAuthorization();
 
 // ── AI Orchestration Proxy ─────────────────────────────────────────────────

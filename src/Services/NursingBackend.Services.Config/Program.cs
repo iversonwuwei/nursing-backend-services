@@ -4,14 +4,14 @@ using NursingBackend.BuildingBlocks.Contracts;
 using NursingBackend.BuildingBlocks.Context;
 using NursingBackend.BuildingBlocks.Entities;
 using NursingBackend.BuildingBlocks.Hosting;
+using NursingBackend.BuildingBlocks.Persistence;
 using NursingBackend.Services.Config;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddPlatformDefaults();
 builder.Services.AddDbContext<ConfigDbContext>(options =>
     options.UseNpgsql(
-        builder.Configuration.GetConnectionString("Postgres")
-        ?? "Host=localhost;Port=5432;Database=nursing_platform;Username=nursing;Password=nursing"));
+        PostgresConnectionStrings.Resolve(builder.Configuration, "ConfigPostgres", "nursing_config")));
 
 var app = builder.Build();
 

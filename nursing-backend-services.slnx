@@ -13,6 +13,8 @@
   </Folder>
   <Folder Name="/src/Tools/">
     <Project Path="src/Tools/NursingBackend.DatabaseMigrator/NursingBackend.DatabaseMigrator.csproj" />
+<Project Path="src/Tools/NursingBackend.DatabaseSeeder/NursingBackend.DatabaseSeeder.csproj" />
+
     <Project Path="src/Tools/NursingBackend.DeadLetterReplay/NursingBackend.DeadLetterReplay.csproj" />
   </Folder>
   <Folder Name="/src/Workers/">

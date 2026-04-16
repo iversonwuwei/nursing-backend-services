@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using NursingBackend.BuildingBlocks.Persistence;
 
 namespace NursingBackend.Services.Config;
 
@@ -8,7 +9,10 @@ public sealed class ConfigDesignTimeDbContextFactory : IDesignTimeDbContextFacto
     public ConfigDbContext CreateDbContext(string[] args)
     {
         var builder = new DbContextOptionsBuilder<ConfigDbContext>();
-        builder.UseNpgsql("Host=localhost;Port=5432;Database=nursing_platform;Username=nursing;Password=nursing");
+        builder.UseNpgsql(PostgresConnectionStrings.Resolve(
+            Environment.GetEnvironmentVariable("ConnectionStrings__ConfigPostgres"),
+            Environment.GetEnvironmentVariable("ConnectionStrings__Postgres"),
+            "nursing_config"));
         return new ConfigDbContext(builder.Options);
     }
 }

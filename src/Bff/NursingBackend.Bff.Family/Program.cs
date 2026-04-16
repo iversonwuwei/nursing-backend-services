@@ -28,22 +28,22 @@ app.MapGet("/api/family/elders/{elderId}/today-summary", async (string elderId, 
 		var elder = await GetJsonAsync<ElderProfileSummaryResponse>(
 			client,
 			context,
-			$"{ResolveServiceUrl(configuration, "Elder", "http://localhost:5310")}/api/elders/{elderId}",
+			$"{ResolveServiceUrl(configuration, "Elder", "http://localhost:5062")}/api/elders/{elderId}",
 			cancellationToken);
 		var health = await GetJsonAsync<HealthArchiveSummaryResponse>(
 			client,
 			context,
-			$"{ResolveServiceUrl(configuration, "Health", "http://localhost:5312")}/api/health/elders/{elderId}/summary",
+			$"{ResolveServiceUrl(configuration, "Health", "http://localhost:5197")}/api/health/elders/{elderId}/summary",
 			cancellationToken);
 		var feed = await GetJsonAsync<NaniTaskFeedResponse>(
 			client,
 			context,
-			$"{ResolveServiceUrl(configuration, "Care", "http://localhost:5311")}/api/care/elders/{elderId}/task-feed",
+			$"{ResolveServiceUrl(configuration, "Care", "http://localhost:5019")}/api/care/elders/{elderId}/task-feed",
 			cancellationToken);
 		var notifications = await GetJsonAsync<IReadOnlyList<NotificationMessageResponse>>(
 			client,
 			context,
-			$"{ResolveServiceUrl(configuration, "Notification", "http://localhost:5317")}/api/notifications?audience=family&audienceKey={elderId}",
+			$"{ResolveServiceUrl(configuration, "Notification", "http://localhost:5144")}/api/notifications?audience=family&audienceKey={elderId}",
 			cancellationToken) ?? [];
 
 		return Results.Ok(new FamilyTodaySummaryResponse(

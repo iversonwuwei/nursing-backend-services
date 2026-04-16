@@ -28,12 +28,12 @@ app.MapGet("/api/gateway/bootstrap", async (HttpContext context, IHttpClientFact
 		var identity = await GetJsonAsync<IdentityContextResponse>(
 			client,
 			context,
-			$"{ResolveServiceUrl(configuration, "Identity", "http://localhost:5301")}/api/identity/me",
+			$"{ResolveServiceUrl(configuration, "Identity", "http://localhost:5265")}/api/identity/me",
 			cancellationToken);
 		var tenant = await GetJsonAsync<TenantDescriptorResponse>(
 			client,
 			context,
-			$"{ResolveServiceUrl(configuration, "Tenant", "http://localhost:5302")}/api/tenants/{requestContext.TenantId}",
+			$"{ResolveServiceUrl(configuration, "Tenant", "http://localhost:5186")}/api/tenants/{requestContext.TenantId}",
 			cancellationToken);
 
 		return Results.Ok(new

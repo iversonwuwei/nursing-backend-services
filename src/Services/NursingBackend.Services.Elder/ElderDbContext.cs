@@ -16,10 +16,14 @@ public sealed class ElderDbContext(DbContextOptions<ElderDbContext> options) : D
         var alertsConverter = new ValueConverter<List<string>, string>(
             value => JsonSerializer.Serialize(value, JsonSerializerOptions.Web),
             value => JsonSerializer.Deserialize<List<string>>(value, JsonSerializerOptions.Web) ?? new List<string>());
+        var serviceItemsConverter = new ValueConverter<List<string>, string>(
+            value => JsonSerializer.Serialize(value, JsonSerializerOptions.Web),
+            value => JsonSerializer.Deserialize<List<string>>(value, JsonSerializerOptions.Web) ?? new List<string>());
 
         modelBuilder.Entity<AdmissionRecordEntity>().HasKey(item => item.AdmissionId);
         modelBuilder.Entity<ElderProfileEntity>().HasKey(item => item.ElderId);
         modelBuilder.Entity<ElderProfileEntity>().Property(item => item.MedicalAlerts).HasConversion(alertsConverter);
+        modelBuilder.Entity<ElderProfileEntity>().Property(item => item.ServiceItems).HasConversion(serviceItemsConverter);
         modelBuilder.Entity<OutboxMessageEntity>().HasKey(item => item.OutboxMessageId);
     }
 }

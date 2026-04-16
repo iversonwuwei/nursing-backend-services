@@ -64,6 +64,9 @@ namespace NursingBackend.Services.Elder.Migrations
                     b.Property<string>("ElderId")
                         .HasColumnType("text");
 
+                    b.Property<int?>("AdlScore")
+                        .HasColumnType("integer");
+
                     b.Property<string>("AdmissionStatus")
                         .IsRequired()
                         .HasColumnType("text");
@@ -71,12 +74,27 @@ namespace NursingBackend.Services.Elder.Migrations
                     b.Property<int>("Age")
                         .HasColumnType("integer");
 
+                    b.Property<string>("BirthDate")
+                        .HasColumnType("text");
+
                     b.Property<string>("CareLevel")
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("CognitiveLevel")
+                        .HasColumnType("text");
+
                     b.Property<string>("ElderName")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ElderPhone")
+                        .HasColumnType("text");
+
+                    b.Property<string>("EntrustmentOrganization")
+                        .HasColumnType("text");
+
+                    b.Property<string>("EntrustmentType")
                         .HasColumnType("text");
 
                     b.Property<string>("FamilyContactName")
@@ -91,12 +109,25 @@ namespace NursingBackend.Services.Elder.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("IdentityCard")
+                        .HasColumnType("text");
+
                     b.Property<string>("MedicalAlerts")
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<decimal?>("MonthlySubsidy")
+                        .HasColumnType("numeric");
+
                     b.Property<string>("RoomNumber")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ServiceItems")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ServiceNotes")
                         .HasColumnType("text");
 
                     b.Property<string>("TenantId")

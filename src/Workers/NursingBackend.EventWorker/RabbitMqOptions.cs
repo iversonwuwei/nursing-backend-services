@@ -4,8 +4,8 @@ public sealed class RabbitMqOptions
 {
 	public string Host { get; init; } = "localhost";
 	public int Port { get; init; } = 5672;
-	public string UserName { get; init; } = "guest";
-	public string Password { get; init; } = "guest";
+	public string UserName { get; init; } = "nursing";
+	public string Password { get; init; } = "nursing";
 	public string Exchange { get; init; } = "nursing.domain.events";
 	public string Queue { get; init; } = "nursing.notification.events";
 	public string RetryExchange { get; init; } = "nursing.domain.events.retry";

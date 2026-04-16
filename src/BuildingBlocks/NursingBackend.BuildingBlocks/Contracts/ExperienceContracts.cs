@@ -15,7 +15,12 @@ public sealed record AdminAdmissionOnboardRequest(
     decimal Temperature,
     decimal BloodSugar,
     int Oxygen,
-    string AlertSummary);
+    string AlertSummary,
+    string? EntrustmentType = null,
+    string? EntrustmentOrganization = null,
+    decimal? MonthlySubsidy = null,
+    IReadOnlyList<string>? ServiceItems = null,
+    string? ServiceNotes = null);
 
 public sealed record AdminAdmissionOnboardResponse(
     AdmissionRecordResponse Admission,

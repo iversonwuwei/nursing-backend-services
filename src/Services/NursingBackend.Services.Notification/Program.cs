@@ -6,12 +6,13 @@ using NursingBackend.BuildingBlocks.Contracts;
 using NursingBackend.BuildingBlocks.Entities;
 using NursingBackend.BuildingBlocks.Hosting;
 using NursingBackend.BuildingBlocks.Networking;
+using NursingBackend.BuildingBlocks.Persistence;
 using NursingBackend.Services.Notification;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddPlatformDefaults();
 builder.Services.AddDbContext<NotificationDbContext>(options =>
-	options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres") ?? "Host=localhost;Port=5432;Database=nursing_platform;Username=nursing;Password=nursing"));
+	options.UseNpgsql(PostgresConnectionStrings.Resolve(builder.Configuration, "NotificationPostgres", "nursing_notification")));
 builder.Services.AddSingleton<NotificationTelemetry>();
 builder.Services.Configure<NotificationProviderCallbackOptions>(builder.Configuration.GetSection("ProviderCallbacks"));
 
@@ -71,7 +72,7 @@ app.MapPost("/api/notifications/dispatch", async (HttpContext context, Notificat
 	return Results.Ok(ToResponse(entity));
 }).RequireAuthorization();
 
-app.MapGet("/api/notifications", async (HttpContext context, string audience, string audienceKey, NotificationDbContext dbContext, CancellationToken cancellationToken) =>
+app.MapGet("/api/notifications", async (HttpContext context, string? audience, string? audienceKey, string? category, string? status, NotificationDbContext dbContext, CancellationToken cancellationToken) =>
 {
 	var tenantId = GetTenantId(context);
 	if (tenantId is null)
@@ -79,8 +80,25 @@ app.MapGet("/api/notifications", async (HttpContext context, string audience, st
 		return Results.Problem(title: "缺少租户上下文。", statusCode: StatusCodes.Status400BadRequest);
 	}
 
-	var items = await dbContext.Notifications
-		.Where(item => item.TenantId == tenantId && item.Audience == audience && item.AudienceKey == audienceKey)
+	var query = dbContext.Notifications.Where(item => item.TenantId == tenantId);
+	if (!string.IsNullOrWhiteSpace(audience))
+	{
+		query = query.Where(item => item.Audience == audience);
+	}
+	if (!string.IsNullOrWhiteSpace(audienceKey))
+	{
+		query = query.Where(item => item.AudienceKey == audienceKey);
+	}
+	if (!string.IsNullOrWhiteSpace(category))
+	{
+		query = query.Where(item => item.Category == category);
+	}
+	if (!string.IsNullOrWhiteSpace(status))
+	{
+		query = query.Where(item => item.Status == status);
+	}
+
+	var items = await query
 		.OrderByDescending(item => item.CreatedAtUtc)
 		.ToListAsync(cancellationToken);
 
@@ -213,6 +231,27 @@ app.MapGet("/api/notifications/observability", async (HttpContext context, Notif
 		Failed: await dbContext.Notifications.CountAsync(item => item.TenantId == tenantId && item.Status == "Failed", cancellationToken),
 		CompensationRequested: await dbContext.DeliveryAttempts.CountAsync(item => item.TenantId == tenantId && item.CompensationStatus == "Requested", cancellationToken),
 		CompensationFailed: await dbContext.DeliveryAttempts.CountAsync(item => item.TenantId == tenantId && item.CompensationStatus == "RequestFailed", cancellationToken),
+		GeneratedAtUtc: DateTimeOffset.UtcNow);
+
+	return Results.Ok(response);
+}).RequireAuthorization();
+
+app.MapGet("/api/notifications/summary", async (HttpContext context, NotificationDbContext dbContext, CancellationToken cancellationToken) =>
+{
+	var tenantId = GetTenantId(context);
+	if (tenantId is null)
+	{
+		return Results.Problem(title: "缺少租户上下文。", statusCode: StatusCodes.Status400BadRequest);
+	}
+
+	var notifications = await dbContext.Notifications.Where(item => item.TenantId == tenantId).ToListAsync(cancellationToken);
+	var response = new AdminNotificationSummaryResponse(
+		Queued: notifications.Count(item => item.Status == "Queued"),
+		Delivered: notifications.Count(item => item.Status == "Delivered"),
+		Failed: notifications.Count(item => item.Status == "Failed"),
+		Broadcasts: notifications.Count(item => item.Category.Contains("broadcast", StringComparison.OrdinalIgnoreCase)),
+		VisitNotices: notifications.Count(item => item.Category.Contains("visit", StringComparison.OrdinalIgnoreCase)),
+		ScheduledReminders: notifications.Count(item => item.Category.Contains("reminder", StringComparison.OrdinalIgnoreCase)),
 		GeneratedAtUtc: DateTimeOffset.UtcNow);
 
 	return Results.Ok(response);

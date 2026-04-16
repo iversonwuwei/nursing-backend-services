@@ -62,12 +62,34 @@ deploy/
 ## 本地命令
 
 ```bash
-docker compose -f deploy/compose.infrastructure.yml up -d postgres redis rabbitmq keycloak seq
+docker compose -f docker-compose-infras.yml up -d postgres redis rabbitmq keycloak seq
 dotnet run --project src/Tools/NursingBackend.DatabaseMigrator/NursingBackend.DatabaseMigrator.csproj
+dotnet run --project src/Tools/NursingBackend.DatabaseSeeder/NursingBackend.DatabaseSeeder.csproj
 dotnet run --project src/Tools/NursingBackend.DeadLetterReplay/NursingBackend.DeadLetterReplay.csproj -- --dry-run --limit 20
 dotnet build nursing-backend-services.slnx
 dotnet test nursing-backend-services.slnx
 ```
+
+本地基础设施入口:
+
+- backend 根目录提供 `docker-compose-infras.yml`，作为本地 PostgreSQL、Redis、RabbitMQ、Keycloak、Seq 的统一启动入口。
+- Postgres 会自动挂载 `deploy/postgres/init/01-create-service-databases.sh`，首次初始化时创建 `nursing_elder`、`nursing_health`、`nursing_care`、`nursing_visit`、`nursing_billing`、`nursing_notification`、`nursing_operations`、`nursing_config`、`nursing_ai`。
+- 旧的 `deploy/compose.infrastructure.yml` 仍保留给 deploy 目录内部资产使用，但本地开发默认优先使用根目录入口，避免相对路径混淆。
+
+数据库初始化顺序:
+
+- 先运行 `NursingBackend.DatabaseMigrator` 创建或升级 schema。
+- 再运行 `NursingBackend.DatabaseSeeder` 写入 elder、health、care、visit、billing、notification、operations 的联调样本。
+- seeder 使用固定 `tenant-demo` 与稳定业务主键，支持重复执行，不依赖内存 seed。
+
+本地端口基线:
+
+- edge: gateway `5200`、family-bff `5274`、nani-bff `5213`、admin-bff `5146`
+- identity and tenant: identity `5265`、tenant `5186`
+- core domain: elder `5062`、care `5019`、health `5197`、visit `5050`、notification `5144`
+- extended domain: operations `5211`、billing `5253`、config `5290`、ai-orchestration `5267`
+- broker and local credentials: RabbitMQ `5672` / management `15672`，默认开发账号 `nursing` / `nursing`
+- 若本地验证出现服务健康但下游聚合 502，先检查 `ServiceEndpoints` 是否仍引用旧的 `53xx` 默认端口。
 
 ## Kubernetes 交付资产
 

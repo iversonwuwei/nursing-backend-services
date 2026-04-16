@@ -3,12 +3,13 @@ using NursingBackend.BuildingBlocks.Context;
 using NursingBackend.BuildingBlocks.Contracts;
 using NursingBackend.BuildingBlocks.Entities;
 using NursingBackend.BuildingBlocks.Hosting;
+using NursingBackend.BuildingBlocks.Persistence;
 using NursingBackend.Services.Billing;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddPlatformDefaults();
 builder.Services.AddDbContext<BillingDbContext>(options =>
-	options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres") ?? "Host=localhost;Port=5432;Database=nursing_platform;Username=nursing;Password=nursing"));
+	options.UseNpgsql(PostgresConnectionStrings.Resolve(builder.Configuration, "BillingPostgres", "nursing_billing")));
 builder.Services.AddSingleton<BillingTelemetry>();
 
 var app = builder.Build();
@@ -97,6 +98,28 @@ app.MapGet("/api/billing/elders/{elderId}/invoices", async (string elderId, Bill
 	return Results.Ok(invoices.Select(ToInvoiceResponse));
 }).RequireAuthorization();
 
+app.MapGet("/api/billing/invoices", async (HttpContext context, BillingDbContext dbContext, CancellationToken cancellationToken, string? status, string? notificationStatus) =>
+{
+	var tenantId = context.GetPlatformRequestContext()?.TenantId;
+	if (string.IsNullOrWhiteSpace(tenantId))
+	{
+		return Results.Problem(title: "缺少租户上下文。", statusCode: StatusCodes.Status400BadRequest);
+	}
+
+	var query = dbContext.Invoices.Where(item => item.TenantId == tenantId);
+	if (!string.IsNullOrWhiteSpace(status))
+	{
+		query = query.Where(item => item.Status == status);
+	}
+	if (!string.IsNullOrWhiteSpace(notificationStatus))
+	{
+		query = query.Where(item => item.NotificationStatus == notificationStatus);
+	}
+
+	var invoices = await query.OrderByDescending(item => item.CreatedAtUtc).ToListAsync(cancellationToken);
+	return Results.Ok(invoices.Select(ToInvoiceResponse));
+}).RequireAuthorization();
+
 app.MapPost("/api/billing/invoices/{invoiceId}/notifications/compensate", async (string invoiceId, HttpContext context, BillingNotificationCompensationRequest request, BillingDbContext dbContext, IConfiguration configuration, BillingTelemetry telemetry, CancellationToken cancellationToken) =>
 {
 	if (!IsCompensationCallerAuthorized(context, configuration))
@@ -172,6 +195,28 @@ app.MapGet("/api/billing/observability", async (BillingDbContext dbContext, Canc
 		OpenCompensations: await dbContext.CompensationRecords.CountAsync(item => item.Status == "Open", cancellationToken),
 		OverdueInvoices: await dbContext.Invoices.CountAsync(item => item.DueAtUtc < utcNow && item.Status != "Paid", cancellationToken),
 		FailedNotificationInvoices: await dbContext.Invoices.CountAsync(item => item.NotificationStatus == "Failed", cancellationToken),
+		GeneratedAtUtc: utcNow);
+
+	return Results.Ok(response);
+}).RequireAuthorization();
+
+app.MapGet("/api/billing/summary", async (HttpContext context, BillingDbContext dbContext, CancellationToken cancellationToken) =>
+{
+	var tenantId = context.GetPlatformRequestContext()?.TenantId;
+	if (string.IsNullOrWhiteSpace(tenantId))
+	{
+		return Results.Problem(title: "缺少租户上下文。", statusCode: StatusCodes.Status400BadRequest);
+	}
+
+	var utcNow = DateTimeOffset.UtcNow;
+	var invoices = await dbContext.Invoices.Where(item => item.TenantId == tenantId).ToListAsync(cancellationToken);
+	var response = new AdminFinanceSummaryResponse(
+		PendingReview: invoices.Count(item => item.Status is "Issued" or "Recovered"),
+		Issued: invoices.Count(item => item.Status == "Issued"),
+		Overdue: invoices.Count(item => item.DueAtUtc < utcNow && item.Status != "Paid"),
+		PendingArchive: invoices.Count(item => item.NotificationStatus is "Delivered" or "Recovered"),
+		ActionRequired: invoices.Count(item => item.Status == "ActionRequired"),
+		FailedNotifications: invoices.Count(item => item.NotificationStatus == "Failed"),
 		GeneratedAtUtc: utcNow);
 
 	return Results.Ok(response);

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using NursingBackend.BuildingBlocks.Persistence;
 
 namespace NursingBackend.Services.Elder;
 
@@ -8,7 +9,10 @@ public sealed class ElderDesignTimeDbContextFactory : IDesignTimeDbContextFactor
 	public ElderDbContext CreateDbContext(string[] args)
 	{
 		var builder = new DbContextOptionsBuilder<ElderDbContext>();
-		builder.UseNpgsql("Host=localhost;Port=5432;Database=nursing_platform;Username=nursing;Password=nursing");
+		builder.UseNpgsql(PostgresConnectionStrings.Resolve(
+			Environment.GetEnvironmentVariable("ConnectionStrings__ElderPostgres"),
+			Environment.GetEnvironmentVariable("ConnectionStrings__Postgres"),
+			"nursing_elder"));
 		return new ElderDbContext(builder.Options);
 	}
 }
