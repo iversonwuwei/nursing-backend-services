@@ -28,6 +28,11 @@
     <ProjectReference Include="..\..\Services\NursingBackend.Services.Notification\NursingBackend.Services.Notification.csproj" />
 <ProjectReference Include="..\..\Services\NursingBackend.Services.Operations\NursingBackend.Services.Operations.csproj" />
 
+<ProjectReference Include="..\..\Services\NursingBackend.Services.Organization\NursingBackend.Services.Organization.csproj" />
+<ProjectReference Include="..\..\Services\NursingBackend.Services.Rooms\NursingBackend.Services.Rooms.csproj" />
+<ProjectReference Include="..\..\Services\NursingBackend.Services.Staffing\NursingBackend.Services.Staffing.csproj" />
+
+
   </ItemGroup>
 
 </Project>

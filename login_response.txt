@@ -1,0 +1,25 @@
+Note: Unnecessary use of -X or --request, POST is already inferred.
+* Host localhost:5146 was resolved.
+* IPv6: ::1
+* IPv4: 127.0.0.1
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0*   Trying [::1]:5146...
+* Connected to localhost (::1) port 5146
+> POST /api/auth/dev-login HTTP/1.1
+> Host: localhost:5146
+> User-Agent: curl/8.7.1
+> Accept: */*
+> Content-Type: application/json
+> Content-Length: 47
+> 
+} [47 bytes data]
+* upload completely sent off: 47 bytes
+< HTTP/1.1 404 Not Found
+< Content-Length: 0
+< Date: Sat, 18 Apr 2026 05:11:20 GMT
+< Server: Kestrel
+< X-Correlation-Id: ea604b09aed74554b9644213ec785868
+< 
+100    47    0     0  100    47      0   3987 --:--:-- --:--:-- --:--:--  4272
+* Connection #0 to host localhost left intact

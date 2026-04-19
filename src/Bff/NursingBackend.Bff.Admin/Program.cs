@@ -1,3 +1,4 @@
+using NursingBackend.Bff.Admin;
 using NursingBackend.BuildingBlocks.Context;
 using NursingBackend.BuildingBlocks.Contracts;
 using NursingBackend.BuildingBlocks.Hosting;
@@ -582,6 +583,97 @@ app.MapPost("/api/admin/elders/admissions", async (AdmissionCreateRequest reques
 	catch (Exception ex) { return Results.Problem(title: "长者入住建档失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
 }).RequireAuthorization();
 
+app.MapGet("/api/admin/assessments", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken, string? keyword, string? status, string? sourceType, string? scene, int page = 1, int pageSize = 20) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var qs = $"?page={page}&pageSize={pageSize}";
+		if (!string.IsNullOrWhiteSpace(keyword)) qs += $"&keyword={Uri.EscapeDataString(keyword)}";
+		if (!string.IsNullOrWhiteSpace(status)) qs += $"&status={Uri.EscapeDataString(status)}";
+		if (!string.IsNullOrWhiteSpace(sourceType)) qs += $"&sourceType={Uri.EscapeDataString(sourceType)}";
+		if (!string.IsNullOrWhiteSpace(scene)) qs += $"&scene={Uri.EscapeDataString(scene)}";
+		var response = await GetJsonAsync<AssessmentCaseListResponse>(client, context, $"{ResolveServiceUrl(configuration, "Elder", "http://localhost:5062")}/api/elders/assessments{qs}", cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "个案评定列表查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/assessments", async (AdminAssessmentCaseCreateRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var aiResponse = await PostJsonAsync<AiAdmissionAssessmentResponse>(
+			client,
+			context,
+			$"{ResolveServiceUrl(configuration, "AiOrchestration", "http://localhost:5267")}/api/ai/admission-assessment",
+			new AiAdmissionAssessmentRequest(
+				ElderName: request.ElderName,
+				Age: request.Age,
+				Gender: request.Gender,
+				RequestedCareLevel: request.RequestedCareLevel,
+				MedicalAlerts: BuildAssessmentMedicalAlerts(request),
+				FamilyNotes: request.RiskNotes),
+			cancellationToken);
+
+		var response = await PostJsonAsync<AssessmentCaseResponse>(
+			client,
+			context,
+			$"{ResolveServiceUrl(configuration, "Elder", "http://localhost:5062")}/api/elders/assessments",
+			new AssessmentCaseCreateRequest(
+				ElderName: request.ElderName,
+				Age: request.Age,
+				Gender: request.Gender,
+				Phone: request.Phone,
+				EmergencyContact: request.EmergencyContact,
+				RoomNumber: request.RoomNumber,
+				RequestedCareLevel: request.RequestedCareLevel,
+				ChronicConditions: request.ChronicConditions,
+				MedicationSummary: request.MedicationSummary,
+				AllergySummary: request.AllergySummary,
+				AdlScore: request.AdlScore,
+				CognitiveLevel: request.CognitiveLevel,
+				RiskNotes: request.RiskNotes,
+				EntrustmentType: request.EntrustmentType,
+				EntrustmentOrganization: request.EntrustmentOrganization,
+				MonthlySubsidy: request.MonthlySubsidy,
+				ServiceItems: request.ServiceItems,
+				ServiceNotes: request.ServiceNotes,
+				SourceType: request.SourceType,
+				SourceLabel: request.SourceLabel,
+				SourceDocumentNames: request.SourceDocumentNames,
+				SourceSummary: request.SourceSummary,
+				AiRecommendation: BuildAssessmentAiRecommendation(request, aiResponse)),
+			cancellationToken);
+
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "个案评定创建失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPut("/api/admin/assessments/{assessmentId}/decision", async (string assessmentId, AssessmentDecisionUpdateRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PutJsonAsync<AssessmentCaseResponse>(client, context, $"{ResolveServiceUrl(configuration, "Elder", "http://localhost:5062")}/api/elders/assessments/{Uri.EscapeDataString(assessmentId)}/decision", request, cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "个案认定确认失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPut("/api/admin/assessments/{assessmentId}/activate", async (string assessmentId, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PutJsonAsync<AssessmentCaseResponse>(client, context, $"{ResolveServiceUrl(configuration, "Elder", "http://localhost:5062")}/api/elders/assessments/{Uri.EscapeDataString(assessmentId)}/activate", new { }, cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "个案认定生效失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
 app.MapGet("/api/admin/elders/{elderId}", async (string elderId, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
 {
 	try
@@ -615,6 +707,121 @@ app.MapGet("/api/admin/elders/{elderId}/health-summary", async (string elderId, 
 		return Results.Ok(response);
 	}
 	catch (Exception ex) { return Results.Problem(title: "健康摘要查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/health/archives", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken, string? keyword) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var healthTask = GetJsonAsync<HealthArchiveListResponse>(
+			client,
+			context,
+			$"{ResolveServiceUrl(configuration, "Health", "http://localhost:5197")}/api/health/archives",
+			cancellationToken);
+		var elderTask = GetJsonAsync<ElderListResponse>(
+			client,
+			context,
+			$"{ResolveServiceUrl(configuration, "Elder", "http://localhost:5062")}/api/elders?page=1&pageSize=500",
+			cancellationToken);
+
+		await Task.WhenAll(healthTask, elderTask);
+
+		var healthResponse = await healthTask;
+		var elderResponse = await elderTask;
+		var elderLookup = elderResponse.Items.ToDictionary(item => item.ElderId, StringComparer.Ordinal);
+
+		var items = healthResponse.Items
+			.Select(item =>
+			{
+				if (elderLookup.TryGetValue(item.ElderId, out var elder))
+				{
+					return new AdminHealthArchiveListItemResponse(
+						ElderId: item.ElderId,
+						TenantId: item.TenantId,
+						ElderName: item.ElderName,
+						RoomNumber: elder.RoomNumber,
+						Age: elder.Age,
+						CareLevel: elder.CareLevel,
+						AdmissionStatus: elder.AdmissionStatus,
+						BloodPressure: item.BloodPressure,
+						HeartRate: item.HeartRate,
+						Temperature: item.Temperature,
+						BloodSugar: item.BloodSugar,
+						Oxygen: item.Oxygen,
+						RiskSummary: item.RiskSummary,
+						UpdatedAtUtc: item.UpdatedAtUtc);
+				}
+
+				return new AdminHealthArchiveListItemResponse(
+					ElderId: item.ElderId,
+					TenantId: item.TenantId,
+					ElderName: item.ElderName,
+					RoomNumber: "待补录",
+					Age: 0,
+					CareLevel: "Unknown",
+					AdmissionStatus: "Unknown",
+					BloodPressure: item.BloodPressure,
+					HeartRate: item.HeartRate,
+					Temperature: item.Temperature,
+					BloodSugar: item.BloodSugar,
+					Oxygen: item.Oxygen,
+					RiskSummary: item.RiskSummary,
+					UpdatedAtUtc: item.UpdatedAtUtc);
+			})
+			.Where(item => string.IsNullOrWhiteSpace(keyword)
+				|| item.ElderName.Contains(keyword, StringComparison.OrdinalIgnoreCase)
+				|| item.RoomNumber.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+			.OrderByDescending(item => item.UpdatedAtUtc)
+			.ToArray();
+
+		return Results.Ok(new AdminHealthArchiveListResponse(items, healthResponse.GeneratedAtUtc));
+	}
+	catch (Exception ex) { return Results.Problem(title: "健康档案列表查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/health/archives", async (AdminHealthArchiveCreateRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var elder = await GetJsonAsync<ElderProfileSummaryResponse>(
+			client,
+			context,
+			$"{ResolveServiceUrl(configuration, "Elder", "http://localhost:5062")}/api/elders/{Uri.EscapeDataString(request.ElderId)}",
+			cancellationToken);
+		var health = await PostJsonAsync<HealthArchiveSummaryResponse>(
+			client,
+			context,
+			$"{ResolveServiceUrl(configuration, "Health", "http://localhost:5197")}/api/health/archives",
+			new HealthArchiveCreateRequest(
+				ElderId: request.ElderId,
+				ElderName: elder.ElderName,
+				BloodPressure: request.BloodPressure,
+				HeartRate: request.HeartRate,
+				Temperature: request.Temperature,
+				BloodSugar: request.BloodSugar,
+				Oxygen: request.Oxygen,
+				RiskSummary: string.IsNullOrWhiteSpace(request.RiskSummary) ? "需持续观察" : request.RiskSummary),
+			cancellationToken);
+
+		return Results.Ok(new AdminHealthArchiveListItemResponse(
+			ElderId: health.ElderId,
+			TenantId: health.TenantId,
+			ElderName: health.ElderName,
+			RoomNumber: elder.RoomNumber,
+			Age: elder.Age,
+			CareLevel: elder.CareLevel,
+			AdmissionStatus: elder.AdmissionStatus,
+			BloodPressure: health.BloodPressure,
+			HeartRate: health.HeartRate,
+			Temperature: health.Temperature,
+			BloodSugar: health.BloodSugar,
+			Oxygen: health.Oxygen,
+			RiskSummary: health.RiskSummary,
+			UpdatedAtUtc: health.UpdatedAtUtc));
+	}
+	catch (Exception ex) { return Results.Problem(title: "健康档案建档失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
 }).RequireAuthorization();
 
 // ── Billing Service Proxy ──────────────────────────────────────────────────
@@ -687,6 +894,220 @@ app.MapGet("/api/admin/billing/observability", async (HttpContext context, IHttp
 		return Results.Ok(response);
 	}
 	catch (Exception ex) { return Results.Problem(title: "账单可观测数据查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+// ── Staffing Service Proxy ────────────────────────────────────────────────
+
+app.MapGet("/api/admin/staff", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken, string? keyword, string? department, string? employmentSource, string? status, string? lifecycleStatus, string? partnerAgency, int? page, int? pageSize) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var query = new List<string>();
+		if (!string.IsNullOrWhiteSpace(keyword)) query.Add($"keyword={Uri.EscapeDataString(keyword)}");
+		if (!string.IsNullOrWhiteSpace(department)) query.Add($"department={Uri.EscapeDataString(department)}");
+		if (!string.IsNullOrWhiteSpace(employmentSource)) query.Add($"employmentSource={Uri.EscapeDataString(employmentSource)}");
+		if (!string.IsNullOrWhiteSpace(status)) query.Add($"status={Uri.EscapeDataString(status)}");
+		if (!string.IsNullOrWhiteSpace(lifecycleStatus)) query.Add($"lifecycleStatus={Uri.EscapeDataString(lifecycleStatus)}");
+		if (!string.IsNullOrWhiteSpace(partnerAgency)) query.Add($"partnerAgency={Uri.EscapeDataString(partnerAgency)}");
+		if (page is > 0) query.Add($"page={page.Value}");
+		if (pageSize is > 0) query.Add($"pageSize={pageSize.Value}");
+		var qs = query.Count > 0 ? $"?{string.Join("&", query)}" : string.Empty;
+		var response = await GetJsonAsync<AdminStaffListResponse>(client, context, $"{ResolveServiceUrl(configuration, "Staffing", "http://localhost:5216")}/api/staffing/staff{qs}", cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "员工列表查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/staff/{staffId}", async (string staffId, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await GetJsonAsync<AdminStaffRecordResponse>(client, context, $"{ResolveServiceUrl(configuration, "Staffing", "http://localhost:5216")}/api/staffing/staff/{Uri.EscapeDataString(staffId)}", cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "员工详情查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/staff", async (AdminStaffCreateRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<AdminStaffRecordResponse>(client, context, $"{ResolveServiceUrl(configuration, "Staffing", "http://localhost:5216")}/api/staffing/staff", request, cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "员工建档失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/staff/{staffId}/activate", async (string staffId, AdminStaffActivateRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<AdminStaffRecordResponse>(client, context, $"{ResolveServiceUrl(configuration, "Staffing", "http://localhost:5216")}/api/staffing/staff/{Uri.EscapeDataString(staffId)}/activate", request, cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "员工确认入职失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+// ── Rooms Service Proxy ───────────────────────────────────────────────────
+
+app.MapGet("/api/admin/organizations", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken, string? keyword, string? status, string? lifecycleStatus, int? page, int? pageSize) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var query = new List<string>();
+		if (!string.IsNullOrWhiteSpace(keyword)) query.Add($"keyword={Uri.EscapeDataString(keyword)}");
+		if (!string.IsNullOrWhiteSpace(status)) query.Add($"status={Uri.EscapeDataString(status)}");
+		if (!string.IsNullOrWhiteSpace(lifecycleStatus)) query.Add($"lifecycleStatus={Uri.EscapeDataString(lifecycleStatus)}");
+		if (page is > 0) query.Add($"page={page.Value}");
+		if (pageSize is > 0) query.Add($"pageSize={pageSize.Value}");
+		var qs = query.Count > 0 ? $"?{string.Join("&", query)}" : string.Empty;
+
+		var organizationsTask = GetJsonAsync<OrganizationListResponse>(client, context, $"{ResolveServiceUrl(configuration, "Organization", "http://localhost:5218")}/api/organizations/organizations{qs}", cancellationToken);
+		var roomsTask = FetchAllRoomsAsync(client, context, configuration, cancellationToken);
+		var eldersTask = FetchAllEldersAsync(client, context, configuration, cancellationToken);
+		var staffTask = FetchAllStaffAsync(client, context, configuration, cancellationToken);
+
+		await Task.WhenAll(organizationsTask, roomsTask, eldersTask, staffTask);
+		var organizations = await organizationsTask;
+		var rooms = await roomsTask;
+		var elders = await eldersTask;
+		var staff = await staffTask;
+		var mergedRooms = rooms.Select(room => MergeRoomRecord(room, elders)).ToArray();
+		var items = organizations.Items.Select(item => MergeOrganizationSummary(item, mergedRooms, staff)).ToArray();
+
+		return Results.Ok(new AdminOrganizationListResponse(items, organizations.Total, organizations.Page, organizations.PageSize));
+	}
+	catch (Exception ex) { return Results.Problem(title: "机构列表查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/organizations/{organizationId}", async (string organizationId, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var organizationTask = GetJsonAsync<OrganizationRecordResponse>(client, context, $"{ResolveServiceUrl(configuration, "Organization", "http://localhost:5218")}/api/organizations/organizations/{Uri.EscapeDataString(organizationId)}", cancellationToken);
+		var roomsTask = FetchAllRoomsAsync(client, context, configuration, cancellationToken);
+		var eldersTask = FetchAllEldersAsync(client, context, configuration, cancellationToken);
+		var staffTask = FetchAllStaffAsync(client, context, configuration, cancellationToken, organizationId);
+
+		await Task.WhenAll(organizationTask, roomsTask, eldersTask, staffTask);
+		var organization = await organizationTask;
+		var rooms = await roomsTask;
+		var elders = await eldersTask;
+		var staff = await staffTask;
+		var mergedRooms = rooms.Select(room => MergeRoomRecord(room, elders)).Where(room => MatchesOrganization(room, organization)).OrderBy(room => room.Floor).ThenBy(room => room.RoomId).ToArray();
+		var matchedStaff = staff.Where(item => MatchesStaffOrganization(item, organization)).OrderBy(item => item.LifecycleStatus == "待入职" ? 0 : item.Status == "休假" ? 1 : 2).ThenBy(item => item.Name).ToArray();
+		var summary = MergeOrganizationSummary(organization, mergedRooms, matchedStaff);
+		var detail = new AdminOrganizationDetailResponse(
+			Organization: summary,
+			Rooms: mergedRooms.Select(MapOrganizationRoom).ToArray(),
+			Staff: matchedStaff);
+
+		return Results.Ok(detail);
+	}
+	catch (Exception ex) { return Results.Problem(title: "机构详情查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/organizations", async (OrganizationCreateRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<OrganizationRecordResponse>(client, context, $"{ResolveServiceUrl(configuration, "Organization", "http://localhost:5218")}/api/organizations/organizations", request, cancellationToken);
+		return Results.Ok(MergeOrganizationSummary(response, [], []));
+	}
+	catch (Exception ex) { return Results.Problem(title: "机构建档失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/organizations/{organizationId}/activate", async (string organizationId, OrganizationActivateRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var organizationTask = PostJsonAsync<OrganizationRecordResponse>(client, context, $"{ResolveServiceUrl(configuration, "Organization", "http://localhost:5218")}/api/organizations/organizations/{Uri.EscapeDataString(organizationId)}/activate", request, cancellationToken);
+		var roomsTask = FetchAllRoomsAsync(client, context, configuration, cancellationToken);
+		var eldersTask = FetchAllEldersAsync(client, context, configuration, cancellationToken);
+		var staffTask = FetchAllStaffAsync(client, context, configuration, cancellationToken, organizationId);
+
+		await Task.WhenAll(organizationTask, roomsTask, eldersTask, staffTask);
+		var organization = await organizationTask;
+		var rooms = await roomsTask;
+		var elders = await eldersTask;
+		var staff = await staffTask;
+		var mergedRooms = rooms.Select(room => MergeRoomRecord(room, elders)).Where(room => MatchesOrganization(room, organization)).ToArray();
+		return Results.Ok(MergeOrganizationSummary(organization, mergedRooms, staff));
+	}
+	catch (Exception ex) { return Results.Problem(title: "机构启用失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/rooms", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken, string? keyword, string? status, string? lifecycleStatus, string? organizationName, int? page, int? pageSize) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var query = new List<string>();
+		if (!string.IsNullOrWhiteSpace(keyword)) query.Add($"keyword={Uri.EscapeDataString(keyword)}");
+		if (!string.IsNullOrWhiteSpace(status)) query.Add($"status={Uri.EscapeDataString(status)}");
+		if (!string.IsNullOrWhiteSpace(lifecycleStatus)) query.Add($"lifecycleStatus={Uri.EscapeDataString(lifecycleStatus)}");
+		if (!string.IsNullOrWhiteSpace(organizationName)) query.Add($"organizationName={Uri.EscapeDataString(organizationName)}");
+		if (page is > 0) query.Add($"page={page.Value}");
+		if (pageSize is > 0) query.Add($"pageSize={pageSize.Value}");
+		var qs = query.Count > 0 ? $"?{string.Join("&", query)}" : string.Empty;
+
+		var roomsTask = GetJsonAsync<AdminRoomListResponse>(client, context, $"{ResolveServiceUrl(configuration, "Rooms", "http://localhost:5217")}/api/rooms/rooms{qs}", cancellationToken);
+		var eldersTask = FetchAllEldersAsync(client, context, configuration, cancellationToken);
+
+		await Task.WhenAll(roomsTask, eldersTask);
+		var rooms = await roomsTask;
+		var elders = await eldersTask;
+		var mergedItems = rooms.Items.Select(room => MergeRoomRecord(room, elders)).ToArray();
+		return Results.Ok(new AdminRoomListResponse(mergedItems, rooms.Total, rooms.Page, rooms.PageSize));
+	}
+	catch (Exception ex) { return Results.Problem(title: "房间列表查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/rooms/{roomId}", async (string roomId, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var roomTask = GetJsonAsync<AdminRoomRecordResponse>(client, context, $"{ResolveServiceUrl(configuration, "Rooms", "http://localhost:5217")}/api/rooms/rooms/{Uri.EscapeDataString(roomId)}", cancellationToken);
+		var eldersTask = FetchAllEldersAsync(client, context, configuration, cancellationToken);
+
+		await Task.WhenAll(roomTask, eldersTask);
+		var room = await roomTask;
+		var elders = await eldersTask;
+		return Results.Ok(MergeRoomRecord(room, elders));
+	}
+	catch (Exception ex) { return Results.Problem(title: "房间详情查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/rooms", async (AdminRoomCreateRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<AdminRoomRecordResponse>(client, context, $"{ResolveServiceUrl(configuration, "Rooms", "http://localhost:5217")}/api/rooms/rooms", request, cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "房间建档失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/rooms/{roomId}/activate", async (string roomId, AdminRoomActivateRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<AdminRoomRecordResponse>(client, context, $"{ResolveServiceUrl(configuration, "Rooms", "http://localhost:5217")}/api/rooms/rooms/{Uri.EscapeDataString(roomId)}/activate", request, cancellationToken);
+		var elders = await FetchAllEldersAsync(client, context, configuration, cancellationToken);
+		return Results.Ok(MergeRoomRecord(response, elders));
+	}
+	catch (Exception ex) { return Results.Problem(title: "房间启用失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
 }).RequireAuthorization();
 
 // ── Visit Service Proxy ────────────────────────────────────────────────────
@@ -793,6 +1214,212 @@ app.MapPost("/api/admin/alerts/{alertId}/actions", async (string alertId, AdminA
 		return Results.Ok(response);
 	}
 	catch (Exception ex) { return Results.Problem(title: "报警动作提交失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/activities", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken, string? keyword, string? status, string? lifecycleStatus, int page = 1, int pageSize = 20) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var query = new List<string>();
+		if (!string.IsNullOrWhiteSpace(keyword)) query.Add($"keyword={Uri.EscapeDataString(keyword)}");
+		if (!string.IsNullOrWhiteSpace(status)) query.Add($"status={Uri.EscapeDataString(status)}");
+		if (!string.IsNullOrWhiteSpace(lifecycleStatus)) query.Add($"lifecycleStatus={Uri.EscapeDataString(lifecycleStatus)}");
+		query.Add($"page={page}");
+		query.Add($"pageSize={pageSize}");
+		var qs = $"?{string.Join("&", query)}";
+		var response = await GetJsonAsync<AdminActivityListResponse>(client, context, $"{ResolveServiceUrl(configuration, "Operations", "http://localhost:5211")}/api/operations/activities{qs}", cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "活动列表查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/activities/{activityId}", async (string activityId, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await GetJsonAsync<AdminActivityRecordResponse>(client, context, $"{ResolveServiceUrl(configuration, "Operations", "http://localhost:5211")}/api/operations/activities/{Uri.EscapeDataString(activityId)}", cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "活动详情查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/activities", async (AdminActivityCreateRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<AdminActivityRecordResponse>(client, context, $"{ResolveServiceUrl(configuration, "Operations", "http://localhost:5211")}/api/operations/activities", request, cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "活动创建失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/activities/{activityId}/actions", async (string activityId, AdminActivityActionRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<AdminActivityRecordResponse>(client, context, $"{ResolveServiceUrl(configuration, "Operations", "http://localhost:5211")}/api/operations/activities/{Uri.EscapeDataString(activityId)}/actions", request, cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "活动动作提交失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/incidents", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken, string? keyword, string? level, string? status, int page = 1, int pageSize = 20) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var query = new List<string>();
+		if (!string.IsNullOrWhiteSpace(keyword)) query.Add($"keyword={Uri.EscapeDataString(keyword)}");
+		if (!string.IsNullOrWhiteSpace(level)) query.Add($"level={Uri.EscapeDataString(level)}");
+		if (!string.IsNullOrWhiteSpace(status)) query.Add($"status={Uri.EscapeDataString(status)}");
+		query.Add($"page={page}");
+		query.Add($"pageSize={pageSize}");
+		var qs = $"?{string.Join("&", query)}";
+		var response = await GetJsonAsync<AdminIncidentListResponse>(client, context, $"{ResolveServiceUrl(configuration, "Operations", "http://localhost:5211")}/api/operations/incidents{qs}", cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "事故列表查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/incidents/{incidentId}", async (string incidentId, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await GetJsonAsync<AdminIncidentRecordResponse>(client, context, $"{ResolveServiceUrl(configuration, "Operations", "http://localhost:5211")}/api/operations/incidents/{Uri.EscapeDataString(incidentId)}", cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "事故详情查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/incidents", async (AdminIncidentCreateRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<AdminIncidentRecordResponse>(client, context, $"{ResolveServiceUrl(configuration, "Operations", "http://localhost:5211")}/api/operations/incidents", request, cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "事故创建失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/incidents/{incidentId}/actions", async (string incidentId, AdminIncidentActionRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<AdminIncidentRecordResponse>(client, context, $"{ResolveServiceUrl(configuration, "Operations", "http://localhost:5211")}/api/operations/incidents/{Uri.EscapeDataString(incidentId)}/actions", request, cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "事故动作提交失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/equipment", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken, string? keyword, string? category, string? status, string? lifecycleStatus, int page = 1, int pageSize = 20) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var query = new List<string>();
+		if (!string.IsNullOrWhiteSpace(keyword)) query.Add($"keyword={Uri.EscapeDataString(keyword)}");
+		if (!string.IsNullOrWhiteSpace(category)) query.Add($"category={Uri.EscapeDataString(category)}");
+		if (!string.IsNullOrWhiteSpace(status)) query.Add($"status={Uri.EscapeDataString(status)}");
+		if (!string.IsNullOrWhiteSpace(lifecycleStatus)) query.Add($"lifecycleStatus={Uri.EscapeDataString(lifecycleStatus)}");
+		query.Add($"page={page}");
+		query.Add($"pageSize={pageSize}");
+		var qs = $"?{string.Join("&", query)}";
+		var response = await GetJsonAsync<AdminEquipmentListResponse>(client, context, $"{ResolveServiceUrl(configuration, "Operations", "http://localhost:5211")}/api/operations/equipment{qs}", cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "设备列表查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/equipment/{equipmentId}", async (string equipmentId, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await GetJsonAsync<AdminEquipmentRecordResponse>(client, context, $"{ResolveServiceUrl(configuration, "Operations", "http://localhost:5211")}/api/operations/equipment/{Uri.EscapeDataString(equipmentId)}", cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "设备详情查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/equipment", async (AdminEquipmentCreateRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<AdminEquipmentRecordResponse>(client, context, $"{ResolveServiceUrl(configuration, "Operations", "http://localhost:5211")}/api/operations/equipment", request, cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "设备创建失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/equipment/{equipmentId}/activate", async (string equipmentId, AdminEquipmentActivateRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<AdminEquipmentRecordResponse>(client, context, $"{ResolveServiceUrl(configuration, "Operations", "http://localhost:5211")}/api/operations/equipment/{Uri.EscapeDataString(equipmentId)}/activate", request, cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "设备验收失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/supplies", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken, string? keyword, string? category, string? status, string? lifecycleStatus, int page = 1, int pageSize = 20) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var query = new List<string>();
+		if (!string.IsNullOrWhiteSpace(keyword)) query.Add($"keyword={Uri.EscapeDataString(keyword)}");
+		if (!string.IsNullOrWhiteSpace(category)) query.Add($"category={Uri.EscapeDataString(category)}");
+		if (!string.IsNullOrWhiteSpace(status)) query.Add($"status={Uri.EscapeDataString(status)}");
+		if (!string.IsNullOrWhiteSpace(lifecycleStatus)) query.Add($"lifecycleStatus={Uri.EscapeDataString(lifecycleStatus)}");
+		query.Add($"page={page}");
+		query.Add($"pageSize={pageSize}");
+		var qs = $"?{string.Join("&", query)}";
+		var response = await GetJsonAsync<AdminSupplyListResponse>(client, context, $"{ResolveServiceUrl(configuration, "Operations", "http://localhost:5211")}/api/operations/supplies{qs}", cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "物资列表查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/supplies/{supplyId}", async (string supplyId, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await GetJsonAsync<AdminSupplyRecordResponse>(client, context, $"{ResolveServiceUrl(configuration, "Operations", "http://localhost:5211")}/api/operations/supplies/{Uri.EscapeDataString(supplyId)}", cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "物资详情查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/supplies", async (AdminSupplyIntakeRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<AdminSupplyRecordResponse>(client, context, $"{ResolveServiceUrl(configuration, "Operations", "http://localhost:5211")}/api/operations/supplies", request, cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "物资入库失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/supplies/{supplyId}/activate", async (string supplyId, AdminSupplyActivateRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<AdminSupplyRecordResponse>(client, context, $"{ResolveServiceUrl(configuration, "Operations", "http://localhost:5211")}/api/operations/supplies/{Uri.EscapeDataString(supplyId)}/activate", request, cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "物资上架确认失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
 }).RequireAuthorization();
 
 // ── Tenant Service Proxy ───────────────────────────────────────────────────
@@ -1172,3 +1799,104 @@ static async Task<T> PutJsonAsync<T>(HttpClient client, HttpContext context, str
 	response.EnsureSuccessStatusCode();
 	return (await response.ReadJsonAsync<T>(cancellationToken))!;
 }
+
+static async Task<IReadOnlyList<ElderListItemResponse>> FetchAllEldersAsync(HttpClient client, HttpContext context, IConfiguration configuration, CancellationToken cancellationToken)
+{
+	const int pageSize = 200;
+	var page = 1;
+	var items = new List<ElderListItemResponse>();
+
+	while (true)
+	{
+		var response = await GetJsonAsync<ElderListResponse>(
+			client,
+			context,
+			$"{ResolveServiceUrl(configuration, "Elder", "http://localhost:5062")}/api/elders?status={Uri.EscapeDataString("Active")}&page={page}&pageSize={pageSize}",
+			cancellationToken);
+
+		items.AddRange(response.Items);
+		if (items.Count >= response.Total || response.Items.Count == 0)
+		{
+			break;
+		}
+
+		page += 1;
+	}
+
+	return items;
+}
+
+static async Task<IReadOnlyList<AdminRoomRecordResponse>> FetchAllRoomsAsync(HttpClient client, HttpContext context, IConfiguration configuration, CancellationToken cancellationToken)
+{
+	const int pageSize = 200;
+	var page = 1;
+	var items = new List<AdminRoomRecordResponse>();
+
+	while (true)
+	{
+		var response = await GetJsonAsync<AdminRoomListResponse>(
+			client,
+			context,
+			$"{ResolveServiceUrl(configuration, "Rooms", "http://localhost:5217")}/api/rooms/rooms?page={page}&pageSize={pageSize}",
+			cancellationToken);
+
+		items.AddRange(response.Items);
+		if (items.Count >= response.Total || response.Items.Count == 0)
+		{
+			break;
+		}
+
+		page += 1;
+	}
+
+	return items;
+}
+
+static async Task<IReadOnlyList<AdminStaffRecordResponse>> FetchAllStaffAsync(HttpClient client, HttpContext context, IConfiguration configuration, CancellationToken cancellationToken, string? organizationId = null)
+{
+	const int pageSize = 200;
+	var page = 1;
+	var items = new List<AdminStaffRecordResponse>();
+	var organizationFilter = string.IsNullOrWhiteSpace(organizationId)
+		? string.Empty
+		: $"&organizationId={Uri.EscapeDataString(organizationId)}";
+
+	while (true)
+	{
+		var response = await GetJsonAsync<AdminStaffListResponse>(
+			client,
+			context,
+			$"{ResolveServiceUrl(configuration, "Staffing", "http://localhost:5216")}/api/staffing/staff?page={page}&pageSize={pageSize}{organizationFilter}",
+			cancellationToken);
+
+		items.AddRange(response.Items);
+		if (items.Count >= response.Total || response.Items.Count == 0)
+		{
+			break;
+		}
+
+		page += 1;
+	}
+
+	return items;
+}
+
+static AdminRoomRecordResponse MergeRoomRecord(AdminRoomRecordResponse room, IReadOnlyList<ElderListItemResponse> elders)
+	=> AdminBffAggregationPolicy.MergeRoomRecord(room, elders);
+
+static bool MatchesOrganization(AdminRoomRecordResponse room, OrganizationRecordResponse organization)
+	=> AdminBffAggregationPolicy.MatchesOrganization(room, organization);
+
+static bool MatchesStaffOrganization(AdminStaffRecordResponse staff, OrganizationRecordResponse organization)
+	=> AdminBffAggregationPolicy.MatchesStaffOrganization(staff, organization);
+
+static AdminOrganizationSummaryResponse MergeOrganizationSummary(OrganizationRecordResponse organization, IReadOnlyList<AdminRoomRecordResponse> rooms, IReadOnlyList<AdminStaffRecordResponse> staff)
+	=> AdminBffAggregationPolicy.MergeOrganizationSummary(organization, rooms, staff);
+
+static AdminOrganizationRoomSummaryResponse MapOrganizationRoom(AdminRoomRecordResponse room) => AdminBffAggregationPolicy.MapOrganizationRoom(room);
+
+static IReadOnlyList<string> BuildAssessmentMedicalAlerts(AdminAssessmentCaseCreateRequest request)
+	=> AdminBffAggregationPolicy.BuildAssessmentMedicalAlerts(request);
+
+static AssessmentAiRecommendationResponse BuildAssessmentAiRecommendation(AdminAssessmentCaseCreateRequest request, AiAdmissionAssessmentResponse response)
+	=> AdminBffAggregationPolicy.BuildAssessmentAiRecommendation(request, response);

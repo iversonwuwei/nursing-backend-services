@@ -9,6 +9,9 @@ databases=(
   nursing_billing
   nursing_notification
   nursing_operations
+  nursing_organizations
+  nursing_rooms
+  nursing_staffing
   nursing_config
   nursing_ai
 )

@@ -10,6 +10,31 @@ public sealed class AdmissionRecordEntity
     public required string CareLevel { get; init; }
     public required string RoomNumber { get; init; }
     public required DateTimeOffset CreatedAtUtc { get; init; }
+    public string AssessmentStatus { get; set; } = string.Empty;
+    public string RequestedCareLevel { get; set; } = string.Empty;
+    public string Phone { get; set; } = string.Empty;
+    public string EmergencyContact { get; set; } = string.Empty;
+    public string ChronicConditions { get; set; } = string.Empty;
+    public string MedicationSummary { get; set; } = string.Empty;
+    public string AllergySummary { get; set; } = string.Empty;
+    public int AdlScore { get; set; }
+    public string CognitiveLevel { get; set; } = string.Empty;
+    public string RiskNotes { get; set; } = string.Empty;
+    public string SourceType { get; set; } = string.Empty;
+    public string? SourceLabel { get; set; }
+    public List<string> SourceDocumentNames { get; set; } = [];
+    public string? SourceSummary { get; set; }
+    public string AiRecommendedCareLevel { get; set; } = string.Empty;
+    public int AiConfidence { get; set; }
+    public int AiAssessmentScore { get; set; }
+    public string AiReasonSummary { get; set; } = string.Empty;
+    public List<string> AiReasons { get; set; } = [];
+    public List<string> AiFocusTags { get; set; } = [];
+    public string AiPlanTemplateCode { get; set; } = string.Empty;
+    public string? ConfirmedCareLevel { get; set; }
+    public string? ReviewNote { get; set; }
+    public DateTimeOffset? ConfirmedAtUtc { get; set; }
+    public string? ConfirmedBy { get; set; }
 }
 
 public sealed class ElderProfileEntity

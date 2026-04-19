@@ -28,7 +28,11 @@
     <Project Path="src/Services/NursingBackend.Services.Health/NursingBackend.Services.Health.csproj" />
     <Project Path="src/Services/NursingBackend.Services.Identity/NursingBackend.Services.Identity.csproj" />
     <Project Path="src/Services/NursingBackend.Services.Notification/NursingBackend.Services.Notification.csproj" />
+<Project Path="src/Services/NursingBackend.Services.Organization/NursingBackend.Services.Organization.csproj" />
+
     <Project Path="src/Services/NursingBackend.Services.Operations/NursingBackend.Services.Operations.csproj" />
+<Project Path="src/Services/NursingBackend.Services.Rooms/NursingBackend.Services.Rooms.csproj" />
+
     <Project Path="src/Services/NursingBackend.Services.Staffing/NursingBackend.Services.Staffing.csproj" />
     <Project Path="src/Services/NursingBackend.Services.Tenant/NursingBackend.Services.Tenant.csproj" />
     <Project Path="src/Services/NursingBackend.Services.Visit/NursingBackend.Services.Visit.csproj" />

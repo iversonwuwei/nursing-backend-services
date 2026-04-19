@@ -22,6 +22,77 @@ namespace NursingBackend.Services.Operations.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("NursingBackend.BuildingBlocks.Entities.ActivityEntity", b =>
+                {
+                    b.Property<string>("ActivityId")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Capacity")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Date")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("Duration")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("LifecycleStatus")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Location")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Participants")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("PublishNote")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("PublishedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Teacher")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Time")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("ActivityId");
+
+                    b.HasIndex("TenantId", "LifecycleStatus", "Status", "Date", "Time");
+
+                    b.ToTable("Activities");
+                });
+
             modelBuilder.Entity("NursingBackend.BuildingBlocks.Entities.AlertCaseEntity", b =>
                 {
                     b.Property<string>("AlertId")
@@ -84,6 +155,258 @@ namespace NursingBackend.Services.Operations.Migrations
                     b.HasIndex("TenantId", "Module", "Status", "Level", "OccurredAtUtc");
 
                     b.ToTable("AlertCases");
+                });
+
+            modelBuilder.Entity("NursingBackend.BuildingBlocks.Entities.EquipmentEntity", b =>
+                {
+                    b.Property<string>("EquipmentId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("AcceptanceNote")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("ActivatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Battery")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("HistoryJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("LifecycleStatus")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Location")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("MaintenanceCycle")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("MaintenanceDate")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("MetricsBp")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("MetricsHr")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("MetricsSpo2")
+                        .HasColumnType("integer");
+
+                    b.Property<double>("MetricsTemp")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("Model")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("OrganizationId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("PurchaseDate")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Remarks")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Room")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("SerialNumber")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Signal")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Uptime")
+                        .HasColumnType("integer");
+
+                    b.HasKey("EquipmentId");
+
+                    b.HasIndex("TenantId", "LifecycleStatus", "Status", "Category");
+
+                    b.ToTable("Equipment");
+                });
+
+            modelBuilder.Entity("NursingBackend.BuildingBlocks.Entities.IncidentEntity", b =>
+                {
+                    b.Property<string>("IncidentId")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("AssignedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("AttachmentsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("ClosedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("ElderName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("HandlingJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Level")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("NextStep")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("OccurredAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Reporter")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ReporterRole")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Room")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("StatusNote")
+                        .HasColumnType("text");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("IncidentId");
+
+                    b.HasIndex("TenantId", "Status", "Level", "OccurredAtUtc");
+
+                    b.ToTable("Incidents");
+                });
+
+            modelBuilder.Entity("NursingBackend.BuildingBlocks.Entities.SupplyEntity", b =>
+                {
+                    b.Property<string>("SupplyId")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("ActivatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Contact")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("HistoryJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("IntakeNote")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("LastIntakeQuantity")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("LastPurchase")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("LifecycleStatus")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("MinStock")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Price")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Stock")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Supplier")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Unit")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("SupplyId");
+
+                    b.HasIndex("TenantId", "LifecycleStatus", "Status", "Category");
+
+                    b.ToTable("Supplies");
                 });
 #pragma warning restore 612, 618
         }

@@ -20,10 +20,18 @@
   </ItemGroup>
 
   <ItemGroup>
+<ProjectReference Include="..\..\src\Bff\NursingBackend.Bff.Admin\NursingBackend.Bff.Admin.csproj" />
+
     <ProjectReference Include="..\..\src\BuildingBlocks\NursingBackend.BuildingBlocks\NursingBackend.BuildingBlocks.csproj" />
     <ProjectReference Include="..\..\src\Services\NursingBackend.Services.Billing\NursingBackend.Services.Billing.csproj" />
     <ProjectReference Include="..\..\src\Services\NursingBackend.Services.Care\NursingBackend.Services.Care.csproj" />
+<ProjectReference Include="..\..\src\Services\NursingBackend.Services.Elder\NursingBackend.Services.Elder.csproj" />
+
     <ProjectReference Include="..\..\src\Services\NursingBackend.Services.Notification\NursingBackend.Services.Notification.csproj" />
+<ProjectReference Include="..\..\src\Services\NursingBackend.Services.Organization\NursingBackend.Services.Organization.csproj" />
+<ProjectReference Include="..\..\src\Services\NursingBackend.Services.Rooms\NursingBackend.Services.Rooms.csproj" />
+<ProjectReference Include="..\..\src\Services\NursingBackend.Services.Staffing\NursingBackend.Services.Staffing.csproj" />
+
     <ProjectReference Include="..\..\src\Services\NursingBackend.Services.Visit\NursingBackend.Services.Visit.csproj" />
     <ProjectReference Include="..\..\src\Workers\NursingBackend.EventWorker\NursingBackend.EventWorker.csproj" />
   </ItemGroup>

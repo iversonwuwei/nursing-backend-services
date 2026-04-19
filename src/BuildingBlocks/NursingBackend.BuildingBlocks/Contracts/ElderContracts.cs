@@ -31,6 +31,109 @@ public sealed record AdmissionRecordResponse(
     string Status,
     DateTimeOffset CreatedAtUtc);
 
+public sealed record AssessmentAiRecommendationResponse(
+    string RecommendedLevel,
+    int Confidence,
+    int AssessmentScore,
+    string ReasonSummary,
+    IReadOnlyList<string> Reasons,
+    IReadOnlyList<string> FocusTags,
+    string PlanTemplateCode);
+
+public sealed record AdminAssessmentCaseCreateRequest(
+    string ElderName,
+    int Age,
+    string Gender,
+    string Phone,
+    string EmergencyContact,
+    string RoomNumber,
+    string RequestedCareLevel,
+    string ChronicConditions,
+    string MedicationSummary,
+    string AllergySummary,
+    int AdlScore,
+    string CognitiveLevel,
+    string RiskNotes,
+    string? EntrustmentType,
+    string? EntrustmentOrganization,
+    decimal? MonthlySubsidy,
+    IReadOnlyList<string>? ServiceItems,
+    string? ServiceNotes,
+    string SourceType,
+    string? SourceLabel,
+    IReadOnlyList<string>? SourceDocumentNames,
+    string? SourceSummary);
+
+public sealed record AssessmentCaseCreateRequest(
+    string ElderName,
+    int Age,
+    string Gender,
+    string Phone,
+    string EmergencyContact,
+    string RoomNumber,
+    string RequestedCareLevel,
+    string ChronicConditions,
+    string MedicationSummary,
+    string AllergySummary,
+    int AdlScore,
+    string CognitiveLevel,
+    string RiskNotes,
+    string? EntrustmentType,
+    string? EntrustmentOrganization,
+    decimal? MonthlySubsidy,
+    IReadOnlyList<string>? ServiceItems,
+    string? ServiceNotes,
+    string SourceType,
+    string? SourceLabel,
+    IReadOnlyList<string>? SourceDocumentNames,
+    string? SourceSummary,
+    AssessmentAiRecommendationResponse AiRecommendation);
+
+public sealed record AssessmentDecisionUpdateRequest(
+    string ConfirmedCareLevel,
+    string? ReviewNote,
+    string ConfirmedBy);
+
+public sealed record AssessmentCaseResponse(
+    string AssessmentId,
+    string ElderId,
+    string TenantId,
+    string ElderName,
+    int Age,
+    string Gender,
+    string RoomNumber,
+    string Phone,
+    string EmergencyContact,
+    string RequestedCareLevel,
+    string Status,
+    string ChronicConditions,
+    string MedicationSummary,
+    string AllergySummary,
+    int AdlScore,
+    string CognitiveLevel,
+    string RiskNotes,
+    string? EntrustmentType,
+    string? EntrustmentOrganization,
+    decimal? MonthlySubsidy,
+    IReadOnlyList<string> ServiceItems,
+    string? ServiceNotes,
+    string SourceType,
+    string SourceLabel,
+    IReadOnlyList<string> SourceDocumentNames,
+    string? SourceSummary,
+    AssessmentAiRecommendationResponse AiRecommendation,
+    string? ConfirmedCareLevel,
+    string? ReviewNote,
+    DateTimeOffset? ConfirmedAtUtc,
+    string? ConfirmedBy,
+    DateTimeOffset CreatedAtUtc);
+
+public sealed record AssessmentCaseListResponse(
+    IReadOnlyList<AssessmentCaseResponse> Items,
+    int Total,
+    int Page,
+    int PageSize);
+
 public sealed record ElderProfileSummaryResponse(
     string ElderId,
     string TenantId,
@@ -82,7 +185,8 @@ public sealed record ElderListItemResponse(
     string CareLevel,
     string RoomNumber,
     string AdmissionStatus,
-    string FamilyContactName);
+    string FamilyContactName,
+    DateTimeOffset? AdmissionCreatedAtUtc);
 
 public sealed record ElderListResponse(
     IReadOnlyList<ElderListItemResponse> Items,

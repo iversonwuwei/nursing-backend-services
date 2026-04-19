@@ -17,7 +17,7 @@ app.MapPlatformEndpoints(new PlatformServiceDescriptor(
 	ServiceType: "domain-service",
 	BoundedContext: "elder-management",
 	Consumers: ["admin-bff", "family-bff", "care-service", "visit-service", "billing-service"],
-	Capabilities: ["elder-registry", "admission-lifecycle", "family-binding", "resident-profile"]));
+	Capabilities: ["elder-registry", "admission-lifecycle", "family-binding", "resident-profile", "assessment-case"]));
 
 app.MapGet("/api/elders", async (HttpContext context, ElderDbContext dbContext, string? name, string? status, string? careLevel, int page = 1, int pageSize = 20) =>
 {
@@ -51,7 +51,12 @@ app.MapGet("/api/elders", async (HttpContext context, ElderDbContext dbContext, 
 			CareLevel: e.CareLevel,
 			RoomNumber: e.RoomNumber,
 			AdmissionStatus: e.AdmissionStatus,
-			FamilyContactName: e.FamilyContactName))
+			FamilyContactName: e.FamilyContactName,
+			AdmissionCreatedAtUtc: dbContext.Admissions
+				.Where(admission => admission.TenantId == e.TenantId && admission.ElderId == e.ElderId)
+				.OrderByDescending(admission => admission.CreatedAtUtc)
+				.Select(admission => (DateTimeOffset?)admission.CreatedAtUtc)
+				.FirstOrDefault()))
 		.ToListAsync();
 
 	return Results.Ok(new ElderListResponse(Items: items, Total: total, Page: page, PageSize: pageSize));
@@ -79,6 +84,23 @@ app.MapPost("/api/elders/admissions", async (HttpContext context, AdmissionCreat
 		CareLevel = request.CareLevel,
 		RoomNumber = request.RoomNumber,
 		CreatedAtUtc = createdAtUtc,
+		AssessmentStatus = string.Empty,
+		RequestedCareLevel = string.Empty,
+		Phone = string.Empty,
+		EmergencyContact = string.Empty,
+		ChronicConditions = string.Empty,
+		MedicationSummary = string.Empty,
+		AllergySummary = string.Empty,
+		AdlScore = 0,
+		CognitiveLevel = string.Empty,
+		RiskNotes = string.Empty,
+		SourceType = string.Empty,
+		SourceDocumentNames = [],
+		AiRecommendedCareLevel = string.Empty,
+		AiReasonSummary = string.Empty,
+		AiReasons = [],
+		AiFocusTags = [],
+		AiPlanTemplateCode = string.Empty,
 	};
 
 	var elder = new ElderProfileEntity
@@ -129,6 +151,280 @@ app.MapPost("/api/elders/admissions", async (HttpContext context, AdmissionCreat
 		RoomNumber: admission.RoomNumber,
 		Status: admission.Status,
 		CreatedAtUtc: admission.CreatedAtUtc));
+}).RequireAuthorization();
+
+app.MapGet("/api/elders/assessments", async (HttpContext context, ElderDbContext dbContext, string? keyword, string? status, string? sourceType, string? scene, int page = 1, int pageSize = 20) =>
+{
+	var requestContext = context.GetPlatformRequestContext();
+	if (requestContext is null || string.IsNullOrWhiteSpace(requestContext.TenantId))
+	{
+		return Results.Problem(title: "缺少租户上下文。", statusCode: StatusCodes.Status400BadRequest);
+	}
+
+	var query =
+		from admission in dbContext.Admissions
+		join elder in dbContext.Elders on new { admission.ElderId, admission.TenantId } equals new { elder.ElderId, elder.TenantId }
+		where admission.TenantId == requestContext.TenantId && !string.IsNullOrWhiteSpace(admission.RequestedCareLevel)
+		select new { admission, elder };
+
+	if (!string.IsNullOrWhiteSpace(status))
+	{
+		query = query.Where(item => item.admission.AssessmentStatus == status);
+	}
+
+	if (!string.IsNullOrWhiteSpace(sourceType))
+	{
+		query = query.Where(item => item.admission.SourceType == sourceType);
+	}
+
+	if (string.Equals(scene, "home", StringComparison.OrdinalIgnoreCase))
+	{
+		query = query.Where(item => item.admission.SourceType == "document-import");
+	}
+	else if (string.Equals(scene, "institutional", StringComparison.OrdinalIgnoreCase))
+	{
+		query = query.Where(item => item.admission.SourceType == "manual-form");
+	}
+
+	if (!string.IsNullOrWhiteSpace(keyword))
+	{
+		query = query.Where(item =>
+			item.admission.AdmissionId.Contains(keyword)
+			|| item.elder.ElderName.Contains(keyword)
+			|| item.admission.RoomNumber.Contains(keyword));
+	}
+
+	var total = await query.CountAsync();
+
+	var items = await query
+		.OrderByDescending(item => item.admission.CreatedAtUtc)
+		.Skip((page - 1) * pageSize)
+		.Take(pageSize)
+		.ToListAsync();
+
+	return Results.Ok(new AssessmentCaseListResponse(
+		Items: items.Select(item => MapAssessmentCase(item.admission, item.elder)).ToArray(),
+		Total: total,
+		Page: page,
+		PageSize: pageSize));
+}).RequireAuthorization();
+
+app.MapPost("/api/elders/assessments", async (HttpContext context, AssessmentCaseCreateRequest request, ElderDbContext dbContext) =>
+{
+	var requestContext = context.GetPlatformRequestContext();
+	if (requestContext is null || string.IsNullOrWhiteSpace(requestContext.TenantId))
+	{
+		return Results.Problem(title: "缺少租户上下文。", statusCode: StatusCodes.Status400BadRequest);
+	}
+
+	if (string.IsNullOrWhiteSpace(request.ElderName)
+		|| request.Age <= 0
+		|| string.IsNullOrWhiteSpace(request.Gender)
+		|| string.IsNullOrWhiteSpace(request.RoomNumber)
+		|| string.IsNullOrWhiteSpace(request.RequestedCareLevel)
+		|| request.AdlScore < 0
+		|| string.IsNullOrWhiteSpace(request.CognitiveLevel))
+	{
+		return Results.Problem(title: "评定个案必填字段不完整。", statusCode: StatusCodes.Status400BadRequest);
+	}
+
+	var createdAtUtc = DateTimeOffset.UtcNow;
+	var admissionId = $"ADM-{createdAtUtc.ToUnixTimeMilliseconds()}";
+	var elderId = $"ELD-{createdAtUtc.ToUnixTimeMilliseconds()}";
+
+	var admission = new AdmissionRecordEntity
+	{
+		AdmissionId = admissionId,
+		TenantId = requestContext.TenantId,
+		ElderId = elderId,
+		AdmissionReference = admissionId,
+		Status = "AdmissionReviewed",
+		CareLevel = request.RequestedCareLevel.Trim(),
+		RoomNumber = request.RoomNumber.Trim(),
+		CreatedAtUtc = createdAtUtc,
+		AssessmentStatus = "待人工确认",
+		RequestedCareLevel = request.RequestedCareLevel.Trim(),
+		Phone = request.Phone.Trim(),
+		EmergencyContact = request.EmergencyContact.Trim(),
+		ChronicConditions = request.ChronicConditions.Trim(),
+		MedicationSummary = request.MedicationSummary.Trim(),
+		AllergySummary = request.AllergySummary.Trim(),
+		AdlScore = request.AdlScore,
+		CognitiveLevel = request.CognitiveLevel.Trim(),
+		RiskNotes = request.RiskNotes.Trim(),
+		SourceType = NormalizeSourceType(request.SourceType),
+		SourceLabel = NormalizeOptionalText(request.SourceLabel),
+		SourceDocumentNames = NormalizeStringList(request.SourceDocumentNames),
+		SourceSummary = NormalizeOptionalText(request.SourceSummary),
+		AiRecommendedCareLevel = request.AiRecommendation.RecommendedLevel.Trim(),
+		AiConfidence = request.AiRecommendation.Confidence,
+		AiAssessmentScore = request.AiRecommendation.AssessmentScore,
+		AiReasonSummary = request.AiRecommendation.ReasonSummary.Trim(),
+		AiReasons = NormalizeStringList(request.AiRecommendation.Reasons),
+		AiFocusTags = NormalizeStringList(request.AiRecommendation.FocusTags),
+		AiPlanTemplateCode = request.AiRecommendation.PlanTemplateCode.Trim(),
+	};
+
+	var elder = new ElderProfileEntity
+	{
+		ElderId = elderId,
+		TenantId = requestContext.TenantId,
+		ElderName = request.ElderName.Trim(),
+		Age = request.Age,
+		Gender = request.Gender.Trim(),
+		CareLevel = request.RequestedCareLevel.Trim(),
+		RoomNumber = request.RoomNumber.Trim(),
+		IdentityCard = null,
+		BirthDate = null,
+		ElderPhone = NormalizeOptionalText(request.Phone),
+		FamilyContactName = request.EmergencyContact.Trim(),
+		FamilyContactPhone = request.Phone.Trim(),
+		AdlScore = NormalizeAdlScore(request.AdlScore),
+		CognitiveLevel = NormalizeOptionalText(request.CognitiveLevel),
+		MedicalAlerts = BuildMedicalAlerts(request),
+		AdmissionStatus = "AdmissionReviewed",
+		EntrustmentType = NormalizeOptionalText(request.EntrustmentType),
+		EntrustmentOrganization = NormalizeOptionalText(request.EntrustmentOrganization),
+		MonthlySubsidy = NormalizeMonthlySubsidy(request.MonthlySubsidy),
+		ServiceItems = NormalizeStringList(request.ServiceItems),
+		ServiceNotes = NormalizeOptionalText(request.ServiceNotes),
+	};
+
+	dbContext.Admissions.Add(admission);
+	dbContext.Elders.Add(elder);
+	dbContext.OutboxMessages.Add(new OutboxMessageEntity
+	{
+		OutboxMessageId = $"OUT-{admissionId}",
+		TenantId = requestContext.TenantId,
+		AggregateType = "AssessmentCase",
+		AggregateId = admissionId,
+		EventType = "AssessmentCaseCreated",
+		PayloadJson = System.Text.Json.JsonSerializer.Serialize(new
+		{
+			assessmentId = admissionId,
+			elderId,
+			request.ElderName,
+			request.RequestedCareLevel,
+			admission.AssessmentStatus,
+			admission.SourceType,
+		}),
+		CreatedAtUtc = createdAtUtc,
+	});
+
+	await dbContext.SaveChangesAsync();
+
+	return Results.Ok(MapAssessmentCase(admission, elder));
+}).RequireAuthorization();
+
+app.MapPut("/api/elders/assessments/{assessmentId}/decision", async (HttpContext context, string assessmentId, AssessmentDecisionUpdateRequest request, ElderDbContext dbContext) =>
+{
+	var requestContext = context.GetPlatformRequestContext();
+	if (requestContext is null || string.IsNullOrWhiteSpace(requestContext.TenantId))
+	{
+		return Results.Problem(title: "缺少租户上下文。", statusCode: StatusCodes.Status400BadRequest);
+	}
+
+	if (string.IsNullOrWhiteSpace(request.ConfirmedCareLevel) || string.IsNullOrWhiteSpace(request.ConfirmedBy))
+	{
+		return Results.Problem(title: "认定等级和认定人不能为空。", statusCode: StatusCodes.Status400BadRequest);
+	}
+
+	var admission = await dbContext.Admissions.FirstOrDefaultAsync(item => item.AdmissionId == assessmentId && item.TenantId == requestContext.TenantId);
+	if (admission is null || string.IsNullOrWhiteSpace(admission.RequestedCareLevel))
+	{
+		return Results.Problem(title: $"评定个案 {assessmentId} 不存在。", statusCode: StatusCodes.Status404NotFound);
+	}
+
+	var elder = await dbContext.Elders.FirstOrDefaultAsync(item => item.ElderId == admission.ElderId && item.TenantId == requestContext.TenantId);
+	if (elder is null)
+	{
+		return Results.Problem(title: $"评定个案 {assessmentId} 对应长者不存在。", statusCode: StatusCodes.Status404NotFound);
+	}
+
+	var confirmedAtUtc = DateTimeOffset.UtcNow;
+	admission.ConfirmedCareLevel = request.ConfirmedCareLevel.Trim();
+	admission.ReviewNote = NormalizeOptionalText(request.ReviewNote);
+	admission.ConfirmedBy = request.ConfirmedBy.Trim();
+	admission.ConfirmedAtUtc = confirmedAtUtc;
+	admission.AssessmentStatus = "计划已生成";
+
+	dbContext.OutboxMessages.Add(new OutboxMessageEntity
+	{
+		OutboxMessageId = $"OUT-{assessmentId}-DECISION-{confirmedAtUtc.ToUnixTimeMilliseconds()}",
+		TenantId = requestContext.TenantId,
+		AggregateType = "AssessmentCase",
+		AggregateId = assessmentId,
+		EventType = "AssessmentDecisionConfirmed",
+		PayloadJson = System.Text.Json.JsonSerializer.Serialize(new
+		{
+			assessmentId,
+			admission.ElderId,
+			admission.ConfirmedCareLevel,
+			admission.ConfirmedBy,
+			admission.AssessmentStatus,
+			confirmedAtUtc,
+		}),
+		CreatedAtUtc = confirmedAtUtc,
+	});
+
+	await dbContext.SaveChangesAsync();
+
+	return Results.Ok(MapAssessmentCase(admission, elder));
+}).RequireAuthorization();
+
+app.MapPut("/api/elders/assessments/{assessmentId}/activate", async (HttpContext context, string assessmentId, ElderDbContext dbContext) =>
+{
+	var requestContext = context.GetPlatformRequestContext();
+	if (requestContext is null || string.IsNullOrWhiteSpace(requestContext.TenantId))
+	{
+		return Results.Problem(title: "缺少租户上下文。", statusCode: StatusCodes.Status400BadRequest);
+	}
+
+	var admission = await dbContext.Admissions.FirstOrDefaultAsync(item => item.AdmissionId == assessmentId && item.TenantId == requestContext.TenantId);
+	if (admission is null || string.IsNullOrWhiteSpace(admission.RequestedCareLevel))
+	{
+		return Results.Problem(title: $"评定个案 {assessmentId} 不存在。", statusCode: StatusCodes.Status404NotFound);
+	}
+
+	if (admission.AssessmentStatus != "计划已生成")
+	{
+		return Results.Problem(title: "当前个案尚未进入待生效状态。", statusCode: StatusCodes.Status400BadRequest);
+	}
+
+	var elder = await dbContext.Elders.FirstOrDefaultAsync(item => item.ElderId == admission.ElderId && item.TenantId == requestContext.TenantId);
+	if (elder is null)
+	{
+		return Results.Problem(title: $"评定个案 {assessmentId} 对应长者不存在。", statusCode: StatusCodes.Status404NotFound);
+	}
+
+	var activatedAtUtc = DateTimeOffset.UtcNow;
+	admission.AssessmentStatus = "已入住";
+	admission.Status = "Active";
+	elder.AdmissionStatus = "Active";
+	elder.CareLevel = admission.ConfirmedCareLevel ?? admission.AiRecommendedCareLevel ?? admission.RequestedCareLevel;
+
+	dbContext.OutboxMessages.Add(new OutboxMessageEntity
+	{
+		OutboxMessageId = $"OUT-{assessmentId}-ACTIVATE-{activatedAtUtc.ToUnixTimeMilliseconds()}",
+		TenantId = requestContext.TenantId,
+		AggregateType = "AssessmentCase",
+		AggregateId = assessmentId,
+		EventType = "AssessmentCaseActivated",
+		PayloadJson = System.Text.Json.JsonSerializer.Serialize(new
+		{
+			assessmentId,
+			admission.ElderId,
+			admission.AssessmentStatus,
+			admission.Status,
+			elder.CareLevel,
+			activatedAtUtc,
+		}),
+		CreatedAtUtc = activatedAtUtc,
+	});
+
+	await dbContext.SaveChangesAsync();
+
+	return Results.Ok(MapAssessmentCase(admission, elder));
 }).RequireAuthorization();
 
 app.MapGet("/api/elders/{elderId}", async (string elderId, ElderDbContext dbContext) =>
@@ -241,6 +537,50 @@ static ElderProfileSummaryResponse MapProfileSummary(ElderProfileEntity elder)
 		ServiceNotes: elder.ServiceNotes);
 }
 
+static AssessmentCaseResponse MapAssessmentCase(AdmissionRecordEntity admission, ElderProfileEntity elder)
+{
+	return new AssessmentCaseResponse(
+		AssessmentId: admission.AdmissionId,
+		ElderId: admission.ElderId,
+		TenantId: admission.TenantId,
+		ElderName: elder.ElderName,
+		Age: elder.Age,
+		Gender: elder.Gender,
+		RoomNumber: admission.RoomNumber,
+		Phone: admission.Phone,
+		EmergencyContact: admission.EmergencyContact,
+		RequestedCareLevel: admission.RequestedCareLevel,
+		Status: admission.AssessmentStatus,
+		ChronicConditions: admission.ChronicConditions,
+		MedicationSummary: admission.MedicationSummary,
+		AllergySummary: admission.AllergySummary,
+		AdlScore: admission.AdlScore,
+		CognitiveLevel: admission.CognitiveLevel,
+		RiskNotes: admission.RiskNotes,
+		EntrustmentType: elder.EntrustmentType,
+		EntrustmentOrganization: elder.EntrustmentOrganization,
+		MonthlySubsidy: elder.MonthlySubsidy,
+		ServiceItems: elder.ServiceItems,
+		ServiceNotes: elder.ServiceNotes,
+		SourceType: string.IsNullOrWhiteSpace(admission.SourceType) ? "manual-form" : admission.SourceType,
+		SourceLabel: admission.SourceLabel ?? GetAssessmentSourceLabel(admission.SourceType),
+		SourceDocumentNames: admission.SourceDocumentNames,
+		SourceSummary: admission.SourceSummary,
+		AiRecommendation: new AssessmentAiRecommendationResponse(
+			RecommendedLevel: admission.AiRecommendedCareLevel,
+			Confidence: admission.AiConfidence,
+			AssessmentScore: admission.AiAssessmentScore,
+			ReasonSummary: admission.AiReasonSummary,
+			Reasons: admission.AiReasons,
+			FocusTags: admission.AiFocusTags,
+			PlanTemplateCode: admission.AiPlanTemplateCode),
+		ConfirmedCareLevel: admission.ConfirmedCareLevel,
+		ReviewNote: admission.ReviewNote,
+		ConfirmedAtUtc: admission.ConfirmedAtUtc,
+		ConfirmedBy: admission.ConfirmedBy,
+		CreatedAtUtc: admission.CreatedAtUtc);
+}
+
 static List<string> NormalizeStringList(IEnumerable<string>? values)
 {
 	if (values is null)
@@ -259,6 +599,32 @@ static string? NormalizeOptionalText(string? value)
 {
 	var trimmed = value?.Trim();
 	return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
+}
+
+static string NormalizeSourceType(string? value)
+{
+	if (string.Equals(value, "document-import", StringComparison.OrdinalIgnoreCase))
+	{
+		return "document-import";
+	}
+
+	return "manual-form";
+}
+
+static string GetAssessmentSourceLabel(string? sourceType)
+{
+	return string.Equals(sourceType, "document-import", StringComparison.OrdinalIgnoreCase)
+		? "资料导入"
+		: "前台建档";
+}
+
+static List<string> BuildMedicalAlerts(AssessmentCaseCreateRequest request)
+{
+	return NormalizeStringList([
+		request.ChronicConditions,
+		request.AllergySummary,
+		request.RiskNotes,
+	]);
 }
 
 static decimal? NormalizeMonthlySubsidy(decimal? value)

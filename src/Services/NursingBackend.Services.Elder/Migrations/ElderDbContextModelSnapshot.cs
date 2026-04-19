@@ -27,12 +27,66 @@ namespace NursingBackend.Services.Elder.Migrations
                     b.Property<string>("AdmissionId")
                         .HasColumnType("text");
 
+                    b.Property<int>("AdlScore")
+                        .HasColumnType("integer");
+
                     b.Property<string>("AdmissionReference")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("AiAssessmentScore")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("AiConfidence")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("AiFocusTags")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("AiPlanTemplateCode")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("AiReasonSummary")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("AiReasons")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("AiRecommendedCareLevel")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("AllergySummary")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("AssessmentStatus")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("CareLevel")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ChronicConditions")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("CognitiveLevel")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("ConfirmedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ConfirmedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ConfirmedCareLevel")
                         .HasColumnType("text");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
@@ -42,7 +96,44 @@ namespace NursingBackend.Services.Elder.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("EmergencyContact")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("MedicationSummary")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("RequestedCareLevel")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ReviewNote")
+                        .HasColumnType("text");
+
+                    b.Property<string>("RiskNotes")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("RoomNumber")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("SourceDocumentNames")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("SourceLabel")
+                        .HasColumnType("text");
+
+                    b.Property<string>("SourceSummary")
+                        .HasColumnType("text");
+
+                    b.Property<string>("SourceType")
                         .IsRequired()
                         .HasColumnType("text");
 
