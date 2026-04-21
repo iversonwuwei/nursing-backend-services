@@ -24,3 +24,11 @@ public sealed record IdentityContextResponse(
     IReadOnlyList<string> Roles,
     IReadOnlyList<string> Scopes,
     string CorrelationId);
+
+public sealed record AdminRoleDescriptorResponse(
+    string Id,
+    string Name,
+    string Description,
+    string Scope,
+    IReadOnlyList<string> Abilities,
+    bool IsHighRisk);

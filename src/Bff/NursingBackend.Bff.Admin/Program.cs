@@ -696,6 +696,64 @@ app.MapPut("/api/admin/elders/{elderId}", async (string elderId, ElderProfileUpd
 	catch (Exception ex) { return Results.Problem(title: "长者主档更新失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
 }).RequireAuthorization();
 
+app.MapGet("/api/admin/elders/face-enrollment", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken, string? keyword, string? status, int page = 1, int pageSize = 50) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var qs = $"?page={page}&pageSize={pageSize}";
+		if (!string.IsNullOrWhiteSpace(keyword)) qs += $"&keyword={Uri.EscapeDataString(keyword)}";
+		if (!string.IsNullOrWhiteSpace(status)) qs += $"&status={Uri.EscapeDataString(status)}";
+		var response = await GetJsonAsync<ElderFaceEnrollmentListResponse>(client, context, $"{ResolveServiceUrl(configuration, "Elder", "http://localhost:5062")}/api/elders/face-enrollment{qs}", cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "人脸录入队列查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/elders/{elderId}/face-enrollment/start", async (string elderId, ElderFaceEnrollmentUpdateRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<ElderFaceEnrollmentListItemResponse>(client, context, $"{ResolveServiceUrl(configuration, "Elder", "http://localhost:5062")}/api/elders/{Uri.EscapeDataString(elderId)}/face-enrollment/start", request, cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "开始人脸采集失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/elders/{elderId}/face-enrollment/capture", async (string elderId, ElderFaceCaptureRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<ElderFaceEnrollmentListItemResponse>(client, context, $"{ResolveServiceUrl(configuration, "Elder", "http://localhost:5062")}/api/elders/{Uri.EscapeDataString(elderId)}/face-enrollment/capture", request, cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "采集人脸样本失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/elders/{elderId}/face-enrollment/activate", async (string elderId, ElderFaceActivationRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<ElderFaceEnrollmentListItemResponse>(client, context, $"{ResolveServiceUrl(configuration, "Elder", "http://localhost:5062")}/api/elders/{Uri.EscapeDataString(elderId)}/face-enrollment/activate", request, cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "激活人脸模板失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/elders/{elderId}/face-enrollment/retake", async (string elderId, ElderFaceRetakeRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<ElderFaceEnrollmentListItemResponse>(client, context, $"{ResolveServiceUrl(configuration, "Elder", "http://localhost:5062")}/api/elders/{Uri.EscapeDataString(elderId)}/face-enrollment/retake", request, cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "退回人脸重录失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
 // ── Health Service Proxy ───────────────────────────────────────────────────
 
 app.MapGet("/api/admin/elders/{elderId}/health-summary", async (string elderId, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
@@ -822,6 +880,95 @@ app.MapPost("/api/admin/health/archives", async (AdminHealthArchiveCreateRequest
 			UpdatedAtUtc: health.UpdatedAtUtc));
 	}
 	catch (Exception ex) { return Results.Problem(title: "健康档案建档失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/vitals", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken, int? take, string? elderId, string? keyword) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var query = new List<string>();
+		if (take is int t) query.Add($"take={t}");
+		if (!string.IsNullOrWhiteSpace(elderId)) query.Add($"elderId={Uri.EscapeDataString(elderId)}");
+		var qs = query.Count > 0 ? $"?{string.Join("&", query)}" : string.Empty;
+
+		var vitalsTask = GetJsonAsync<List<VitalObservationResponse>>(
+			client,
+			context,
+			$"{ResolveServiceUrl(configuration, "Health", "http://localhost:5197")}/api/health/vitals{qs}",
+			cancellationToken);
+		var elderTask = GetJsonAsync<ElderListResponse>(
+			client,
+			context,
+			$"{ResolveServiceUrl(configuration, "Elder", "http://localhost:5062")}/api/elders?page=1&pageSize=500",
+			cancellationToken);
+
+		await Task.WhenAll(vitalsTask, elderTask);
+		var vitals = await vitalsTask;
+		var elderLookup = (await elderTask).Items.ToDictionary(item => item.ElderId, StringComparer.Ordinal);
+
+		var items = vitals
+			.Select(item =>
+			{
+				elderLookup.TryGetValue(item.ElderId, out var elder);
+				return new AdminVitalObservationResponse(
+					ObservationId: item.ObservationId,
+					TenantId: item.TenantId,
+					ElderId: item.ElderId,
+					ElderName: elder?.ElderName ?? item.ElderId,
+					RoomNumber: elder?.RoomNumber ?? "待补录",
+					BloodPressure: item.BloodPressure,
+					HeartRate: item.HeartRate,
+					Temperature: item.Temperature,
+					BloodSugar: item.BloodSugar,
+					Oxygen: item.Oxygen,
+					RecordedBy: item.RecordedBy,
+					RecordedAtUtc: item.RecordedAtUtc);
+			})
+			.Where(item => string.IsNullOrWhiteSpace(keyword)
+				|| item.ElderName.Contains(keyword, StringComparison.OrdinalIgnoreCase)
+				|| item.RoomNumber.Contains(keyword, StringComparison.OrdinalIgnoreCase)
+				|| item.ElderId.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+			.OrderByDescending(item => item.RecordedAtUtc)
+			.ToArray();
+
+		return Results.Ok(items);
+	}
+	catch (Exception ex) { return Results.Problem(title: "体征记录查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/vitals", async (VitalObservationCreateRequest request, HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var elder = await GetJsonAsync<ElderProfileSummaryResponse>(
+			client,
+			context,
+			$"{ResolveServiceUrl(configuration, "Elder", "http://localhost:5062")}/api/elders/{Uri.EscapeDataString(request.ElderId)}",
+			cancellationToken);
+		var response = await PostJsonAsync<VitalObservationResponse>(
+			client,
+			context,
+			$"{ResolveServiceUrl(configuration, "Health", "http://localhost:5197")}/api/health/vitals",
+			request,
+			cancellationToken);
+
+		return Results.Ok(new AdminVitalObservationResponse(
+			ObservationId: response.ObservationId,
+			TenantId: response.TenantId,
+			ElderId: response.ElderId,
+			ElderName: elder.ElderName,
+			RoomNumber: elder.RoomNumber,
+			BloodPressure: response.BloodPressure,
+			HeartRate: response.HeartRate,
+			Temperature: response.Temperature,
+			BloodSugar: response.BloodSugar,
+			Oxygen: response.Oxygen,
+			RecordedBy: response.RecordedBy,
+			RecordedAtUtc: response.RecordedAtUtc));
+	}
+	catch (Exception ex) { return Results.Problem(title: "体征记录写入失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
 }).RequireAuthorization();
 
 // ── Billing Service Proxy ──────────────────────────────────────────────────
@@ -1121,6 +1268,29 @@ app.MapGet("/api/admin/elders/{elderId}/appointments", async (string elderId, Ht
 		return Results.Ok(response);
 	}
 	catch (Exception ex) { return Results.Problem(title: "探访预约查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapGet("/api/admin/visits", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken, int? take) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var qs = take.HasValue ? $"?take={take.Value}" : string.Empty;
+		var response = await GetJsonAsync<List<AdminVisitAppointmentResponse>>(client, context, $"{ResolveServiceUrl(configuration, "Visit", "http://localhost:5050")}/api/visits/appointments{qs}", cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "探视列表查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
+
+app.MapPost("/api/admin/visits", async (HttpContext context, VisitAppointmentCreateRequest request, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await PostJsonAsync<VisitAppointmentResponse>(client, context, $"{ResolveServiceUrl(configuration, "Visit", "http://localhost:5050")}/api/visits/appointments", request, cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "探视预约创建失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
 }).RequireAuthorization();
 
 // ── Notification Service Proxy ─────────────────────────────────────────────
@@ -1423,6 +1593,21 @@ app.MapPost("/api/admin/supplies/{supplyId}/activate", async (string supplyId, A
 }).RequireAuthorization();
 
 // ── Tenant Service Proxy ───────────────────────────────────────────────────
+
+app.MapGet("/api/admin/roles", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
+{
+	try
+	{
+		var client = httpClientFactory.CreateClient();
+		var response = await GetJsonAsync<List<AdminRoleDescriptorResponse>>(
+			client,
+			context,
+			$"{ResolveServiceUrl(configuration, "Identity", "http://localhost:5180")}/api/identity/roles",
+			cancellationToken);
+		return Results.Ok(response);
+	}
+	catch (Exception ex) { return Results.Problem(title: "角色列表查询失败。", detail: ex.Message, statusCode: StatusCodes.Status502BadGateway); }
+}).RequireAuthorization();
 
 app.MapGet("/api/admin/tenants", async (HttpContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
 {

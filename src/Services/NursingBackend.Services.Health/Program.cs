@@ -172,7 +172,80 @@ app.MapGet("/api/health/elders/{elderId}/summary", async (string elderId, Health
 	return Results.Ok(MapArchiveSummary(archive));
 }).RequireAuthorization();
 
+app.MapGet("/api/health/vitals", async (HttpContext context, HealthDbContext dbContext, int? take, string? elderId, CancellationToken cancellationToken) =>
+{
+	var requestContext = context.GetPlatformRequestContext();
+	if (requestContext is null || string.IsNullOrWhiteSpace(requestContext.TenantId))
+	{
+		return Results.Problem(title: "缺少租户上下文。", statusCode: StatusCodes.Status400BadRequest);
+	}
+
+	var limit = Math.Clamp(take ?? 100, 1, 500);
+	var tenantId = requestContext.TenantId;
+	var query = dbContext.VitalObservations.Where(item => item.TenantId == tenantId);
+	if (!string.IsNullOrWhiteSpace(elderId))
+	{
+		query = query.Where(item => item.ElderId == elderId);
+	}
+
+	var items = await query
+		.OrderByDescending(item => item.RecordedAtUtc)
+		.Take(limit)
+		.ToListAsync(cancellationToken);
+
+	return Results.Ok(items.Select(MapVitalObservation));
+}).RequireAuthorization();
+
+app.MapPost("/api/health/vitals", async (HttpContext context, VitalObservationCreateRequest request, HealthDbContext dbContext, CancellationToken cancellationToken) =>
+{
+	var requestContext = context.GetPlatformRequestContext();
+	if (requestContext is null || string.IsNullOrWhiteSpace(requestContext.TenantId))
+	{
+		return Results.Problem(title: "缺少租户上下文。", statusCode: StatusCodes.Status400BadRequest);
+	}
+
+	if (string.IsNullOrWhiteSpace(request.ElderId) || string.IsNullOrWhiteSpace(request.BloodPressure) || string.IsNullOrWhiteSpace(request.RecordedBy))
+	{
+		return Results.Problem(title: "体征记录缺少必要字段。", statusCode: StatusCodes.Status400BadRequest);
+	}
+
+	var recordedAt = request.RecordedAtUtc ?? DateTimeOffset.UtcNow;
+	var entity = new VitalObservationEntity
+	{
+		ObservationId = $"VIT-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}-{Guid.NewGuid().ToString("N")[..6]}",
+		TenantId = requestContext.TenantId,
+		ElderId = request.ElderId,
+		BloodPressure = request.BloodPressure.Trim(),
+		HeartRate = request.HeartRate,
+		Temperature = request.Temperature,
+		BloodSugar = request.BloodSugar,
+		Oxygen = request.Oxygen,
+		RecordedBy = request.RecordedBy.Trim(),
+		RecordedAtUtc = recordedAt,
+	};
+
+	dbContext.VitalObservations.Add(entity);
+	await dbContext.SaveChangesAsync(cancellationToken);
+
+	return Results.Ok(MapVitalObservation(entity));
+}).RequireAuthorization();
+
 app.Run();
+
+static VitalObservationResponse MapVitalObservation(VitalObservationEntity entity)
+{
+	return new VitalObservationResponse(
+		ObservationId: entity.ObservationId,
+		TenantId: entity.TenantId,
+		ElderId: entity.ElderId,
+		BloodPressure: entity.BloodPressure,
+		HeartRate: entity.HeartRate,
+		Temperature: entity.Temperature,
+		BloodSugar: entity.BloodSugar,
+		Oxygen: entity.Oxygen,
+		RecordedBy: entity.RecordedBy,
+		RecordedAtUtc: entity.RecordedAtUtc);
+}
 
 static HealthArchiveSummaryResponse MapArchiveSummary(HealthArchiveEntity archive)
 {

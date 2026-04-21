@@ -509,6 +509,276 @@ app.MapPut("/api/elders/{elderId}", async (HttpContext context, string elderId, 
 	return Results.Ok(MapProfileSummary(elder));
 }).RequireAuthorization();
 
+app.MapGet("/api/elders/face-enrollment", async (HttpContext context, ElderDbContext dbContext, string? keyword, string? status, int page = 1, int pageSize = 50) =>
+{
+	var requestContext = context.GetPlatformRequestContext();
+	if (requestContext is null || string.IsNullOrWhiteSpace(requestContext.TenantId))
+	{
+		return Results.Problem(title: "缺少租户上下文。", statusCode: StatusCodes.Status400BadRequest);
+	}
+
+	var query = dbContext.Elders.Where(item => item.TenantId == requestContext.TenantId);
+	if (!string.IsNullOrWhiteSpace(keyword))
+	{
+		query = query.Where(item => item.ElderId.Contains(keyword) || item.ElderName.Contains(keyword) || item.RoomNumber.Contains(keyword));
+	}
+
+	if (!string.IsNullOrWhiteSpace(status))
+	{
+		query = query.Where(item => item.FaceEnrollmentStatus == status);
+	}
+
+	var normalizedPage = Math.Max(1, page);
+	var normalizedPageSize = Math.Clamp(pageSize, 1, 500);
+	var total = await query.CountAsync();
+	var items = await query
+		.OrderByDescending(item => item.FaceLastUpdatedUtc ?? DateTimeOffset.MinValue)
+		.ThenBy(item => item.ElderName)
+		.Skip((normalizedPage - 1) * normalizedPageSize)
+		.Take(normalizedPageSize)
+		.ToListAsync();
+
+	return Results.Ok(new ElderFaceEnrollmentListResponse(
+		Items: items.Select(MapFaceEnrollment).ToArray(),
+		Total: total,
+		Page: normalizedPage,
+		PageSize: normalizedPageSize));
+}).RequireAuthorization();
+
+app.MapPost("/api/elders/{elderId}/face-enrollment/start", async (HttpContext context, string elderId, ElderFaceEnrollmentUpdateRequest request, ElderDbContext dbContext) =>
+{
+	var requestContext = context.GetPlatformRequestContext();
+	if (requestContext is null || string.IsNullOrWhiteSpace(requestContext.TenantId))
+	{
+		return Results.Problem(title: "缺少租户上下文。", statusCode: StatusCodes.Status400BadRequest);
+	}
+
+	if (string.IsNullOrWhiteSpace(request.Operator) || string.IsNullOrWhiteSpace(request.DeviceLabel))
+	{
+		return Results.Problem(title: "采集操作人和采集终端不能为空。", statusCode: StatusCodes.Status400BadRequest);
+	}
+
+	var elder = await dbContext.Elders.FirstOrDefaultAsync(item => item.ElderId == elderId && item.TenantId == requestContext.TenantId);
+	if (elder is null)
+	{
+		return Results.Problem(title: $"老人 {elderId} 不存在。", statusCode: StatusCodes.Status404NotFound);
+	}
+
+	var steps = elder.FaceEnrollmentStatus == "采集中"
+		? NormalizeStringList(elder.FaceCapturedSteps)
+		: [];
+	var qualityScore = QualityForFaceSteps(steps);
+	var nextStatus = steps.Count >= 3 ? "待确认" : "采集中";
+	var now = DateTimeOffset.UtcNow;
+
+	elder.FaceEnrollmentStatus = nextStatus;
+	elder.FaceCapturedSteps = steps;
+	elder.FaceQualityScore = qualityScore;
+	elder.FaceQualitySummary = SummarizeFaceQuality(nextStatus, steps, qualityScore, null);
+	elder.FaceOperator = request.Operator.Trim();
+	elder.FaceDeviceLabel = request.DeviceLabel.Trim();
+	elder.FaceEntrySource = NormalizeOptionalText(request.EntrySource) ?? "face-page";
+	elder.FaceLastUpdatedUtc = now;
+	elder.FaceRetakeReason = null;
+
+	dbContext.OutboxMessages.Add(new OutboxMessageEntity
+	{
+		OutboxMessageId = $"OUT-ELDER-FACE-START-{elderId}-{now.ToUnixTimeMilliseconds()}",
+		TenantId = requestContext.TenantId,
+		AggregateType = "ElderFaceEnrollment",
+		AggregateId = elderId,
+		EventType = "ElderFaceEnrollmentStarted",
+		PayloadJson = System.Text.Json.JsonSerializer.Serialize(new
+		{
+			elderId,
+			elder.FaceEnrollmentStatus,
+			elder.FaceCapturedSteps,
+			elder.FaceOperator,
+			elder.FaceDeviceLabel,
+			now,
+		}),
+		CreatedAtUtc = now,
+	});
+
+	await dbContext.SaveChangesAsync();
+	return Results.Ok(MapFaceEnrollment(elder));
+}).RequireAuthorization();
+
+app.MapPost("/api/elders/{elderId}/face-enrollment/capture", async (HttpContext context, string elderId, ElderFaceCaptureRequest request, ElderDbContext dbContext) =>
+{
+	var requestContext = context.GetPlatformRequestContext();
+	if (requestContext is null || string.IsNullOrWhiteSpace(requestContext.TenantId))
+	{
+		return Results.Problem(title: "缺少租户上下文。", statusCode: StatusCodes.Status400BadRequest);
+	}
+
+	if (string.IsNullOrWhiteSpace(request.Operator) || string.IsNullOrWhiteSpace(request.DeviceLabel))
+	{
+		return Results.Problem(title: "采集操作人和采集终端不能为空。", statusCode: StatusCodes.Status400BadRequest);
+	}
+
+	var step = NormalizeFaceCaptureStep(request.Step);
+	if (step is null)
+	{
+		return Results.Problem(title: "人脸采集角度无效。", statusCode: StatusCodes.Status400BadRequest);
+	}
+
+	var elder = await dbContext.Elders.FirstOrDefaultAsync(item => item.ElderId == elderId && item.TenantId == requestContext.TenantId);
+	if (elder is null)
+	{
+		return Results.Problem(title: $"老人 {elderId} 不存在。", statusCode: StatusCodes.Status404NotFound);
+	}
+
+	var steps = (elder.FaceEnrollmentStatus == "待录入" || elder.FaceEnrollmentStatus == "需重录")
+		? []
+		: NormalizeStringList(elder.FaceCapturedSteps);
+	if (!steps.Contains(step, StringComparer.Ordinal))
+	{
+		steps.Add(step);
+	}
+
+	var qualityScore = QualityForFaceSteps(steps);
+	var nextStatus = steps.Count >= 3 ? "待确认" : "采集中";
+	var now = DateTimeOffset.UtcNow;
+
+	elder.FaceEnrollmentStatus = nextStatus;
+	elder.FaceCapturedSteps = steps;
+	elder.FaceQualityScore = qualityScore;
+	elder.FaceQualitySummary = SummarizeFaceQuality(nextStatus, steps, qualityScore, null);
+	elder.FaceOperator = request.Operator.Trim();
+	elder.FaceDeviceLabel = request.DeviceLabel.Trim();
+	elder.FaceLastUpdatedUtc = now;
+	elder.FaceRetakeReason = null;
+
+	dbContext.OutboxMessages.Add(new OutboxMessageEntity
+	{
+		OutboxMessageId = $"OUT-ELDER-FACE-CAPTURE-{elderId}-{now.ToUnixTimeMilliseconds()}",
+		TenantId = requestContext.TenantId,
+		AggregateType = "ElderFaceEnrollment",
+		AggregateId = elderId,
+		EventType = "ElderFaceSampleCaptured",
+		PayloadJson = System.Text.Json.JsonSerializer.Serialize(new
+		{
+			elderId,
+			step,
+			elder.FaceEnrollmentStatus,
+			elder.FaceCapturedSteps,
+			now,
+		}),
+		CreatedAtUtc = now,
+	});
+
+	await dbContext.SaveChangesAsync();
+	return Results.Ok(MapFaceEnrollment(elder));
+}).RequireAuthorization();
+
+app.MapPost("/api/elders/{elderId}/face-enrollment/activate", async (HttpContext context, string elderId, ElderFaceActivationRequest request, ElderDbContext dbContext) =>
+{
+	var requestContext = context.GetPlatformRequestContext();
+	if (requestContext is null || string.IsNullOrWhiteSpace(requestContext.TenantId))
+	{
+		return Results.Problem(title: "缺少租户上下文。", statusCode: StatusCodes.Status400BadRequest);
+	}
+
+	if (string.IsNullOrWhiteSpace(request.ActivationNote))
+	{
+		return Results.Problem(title: "激活备注不能为空。", statusCode: StatusCodes.Status400BadRequest);
+	}
+
+	var elder = await dbContext.Elders.FirstOrDefaultAsync(item => item.ElderId == elderId && item.TenantId == requestContext.TenantId);
+	if (elder is null)
+	{
+		return Results.Problem(title: $"老人 {elderId} 不存在。", statusCode: StatusCodes.Status404NotFound);
+	}
+
+	var steps = NormalizeStringList(elder.FaceCapturedSteps);
+	if (steps.Count < 3)
+	{
+		return Results.Problem(title: "请先补齐三个角度样本后再激活。", statusCode: StatusCodes.Status400BadRequest);
+	}
+
+	var now = DateTimeOffset.UtcNow;
+	elder.FaceEnrollmentStatus = "已生效";
+	elder.FaceCapturedSteps = steps;
+	elder.FaceQualityScore = Math.Max(elder.FaceQualityScore, 92);
+	elder.FaceQualitySummary = SummarizeFaceQuality("已生效", steps, elder.FaceQualityScore, null);
+	elder.FaceActivationNote = request.ActivationNote.Trim();
+	elder.FaceActivatedAtUtc = now;
+	elder.FaceLastUpdatedUtc = now;
+	elder.FaceRetakeReason = null;
+
+	dbContext.OutboxMessages.Add(new OutboxMessageEntity
+	{
+		OutboxMessageId = $"OUT-ELDER-FACE-ACTIVATE-{elderId}-{now.ToUnixTimeMilliseconds()}",
+		TenantId = requestContext.TenantId,
+		AggregateType = "ElderFaceEnrollment",
+		AggregateId = elderId,
+		EventType = "ElderFaceEnrollmentActivated",
+		PayloadJson = System.Text.Json.JsonSerializer.Serialize(new
+		{
+			elderId,
+			elder.FaceEnrollmentStatus,
+			elder.FaceQualityScore,
+			elder.FaceActivatedAtUtc,
+			now,
+		}),
+		CreatedAtUtc = now,
+	});
+
+	await dbContext.SaveChangesAsync();
+	return Results.Ok(MapFaceEnrollment(elder));
+}).RequireAuthorization();
+
+app.MapPost("/api/elders/{elderId}/face-enrollment/retake", async (HttpContext context, string elderId, ElderFaceRetakeRequest request, ElderDbContext dbContext) =>
+{
+	var requestContext = context.GetPlatformRequestContext();
+	if (requestContext is null || string.IsNullOrWhiteSpace(requestContext.TenantId))
+	{
+		return Results.Problem(title: "缺少租户上下文。", statusCode: StatusCodes.Status400BadRequest);
+	}
+
+	if (string.IsNullOrWhiteSpace(request.Reason))
+	{
+		return Results.Problem(title: "退回重录原因不能为空。", statusCode: StatusCodes.Status400BadRequest);
+	}
+
+	var elder = await dbContext.Elders.FirstOrDefaultAsync(item => item.ElderId == elderId && item.TenantId == requestContext.TenantId);
+	if (elder is null)
+	{
+		return Results.Problem(title: $"老人 {elderId} 不存在。", statusCode: StatusCodes.Status404NotFound);
+	}
+
+	var now = DateTimeOffset.UtcNow;
+	var reason = request.Reason.Trim();
+	elder.FaceEnrollmentStatus = "需重录";
+	elder.FaceCapturedSteps = [];
+	elder.FaceQualityScore = 58;
+	elder.FaceQualitySummary = SummarizeFaceQuality("需重录", [], elder.FaceQualityScore, reason);
+	elder.FaceRetakeReason = reason;
+	elder.FaceActivationNote = null;
+	elder.FaceLastUpdatedUtc = now;
+
+	dbContext.OutboxMessages.Add(new OutboxMessageEntity
+	{
+		OutboxMessageId = $"OUT-ELDER-FACE-RETAKE-{elderId}-{now.ToUnixTimeMilliseconds()}",
+		TenantId = requestContext.TenantId,
+		AggregateType = "ElderFaceEnrollment",
+		AggregateId = elderId,
+		EventType = "ElderFaceEnrollmentReturned",
+		PayloadJson = System.Text.Json.JsonSerializer.Serialize(new
+		{
+			elderId,
+			elder.FaceEnrollmentStatus,
+			reason,
+			now,
+		}),
+		CreatedAtUtc = now,
+	});
+
+	await dbContext.SaveChangesAsync();
+	return Results.Ok(MapFaceEnrollment(elder));
+}).RequireAuthorization();
+
 app.Run();
 
 static ElderProfileSummaryResponse MapProfileSummary(ElderProfileEntity elder)
@@ -593,6 +863,99 @@ static List<string> NormalizeStringList(IEnumerable<string>? values)
 		.Where(value => !string.IsNullOrWhiteSpace(value))
 		.Distinct(StringComparer.Ordinal)
 		.ToList();
+}
+
+static ElderFaceEnrollmentListItemResponse MapFaceEnrollment(ElderProfileEntity elder)
+{
+	var status = NormalizeOptionalText(elder.FaceEnrollmentStatus) ?? "待录入";
+	var steps = NormalizeStringList(elder.FaceCapturedSteps);
+	var qualityScore = elder.FaceQualityScore > 0 ? elder.FaceQualityScore : QualityForFaceSteps(steps);
+	var summary = !string.IsNullOrWhiteSpace(elder.FaceQualitySummary)
+		? elder.FaceQualitySummary
+		: SummarizeFaceQuality(status, steps, qualityScore, elder.FaceRetakeReason);
+
+	return new ElderFaceEnrollmentListItemResponse(
+		ElderId: elder.ElderId,
+		TenantId: elder.TenantId,
+		ElderName: elder.ElderName,
+		RoomNumber: elder.RoomNumber,
+		CareLevel: elder.CareLevel,
+		FaceEnrollmentStatus: status,
+		FaceCapturedSteps: steps,
+		FaceQualityScore: qualityScore,
+		FaceQualitySummary: summary,
+		FaceOperator: elder.FaceOperator,
+		FaceDeviceLabel: elder.FaceDeviceLabel,
+		FaceEntrySource: elder.FaceEntrySource,
+		FaceLastUpdatedUtc: elder.FaceLastUpdatedUtc,
+		FaceActivatedAtUtc: elder.FaceActivatedAtUtc,
+		FaceActivationNote: elder.FaceActivationNote,
+		FaceRetakeReason: elder.FaceRetakeReason);
+}
+
+static int QualityForFaceSteps(IReadOnlyCollection<string> steps)
+{
+	if (steps.Count >= 3)
+	{
+		return 92;
+	}
+
+	if (steps.Count == 2)
+	{
+		return 81;
+	}
+
+	if (steps.Count == 1)
+	{
+		return 68;
+	}
+
+	return 0;
+}
+
+static string SummarizeFaceQuality(string status, IReadOnlyCollection<string> steps, int qualityScore, string? retakeReason)
+{
+	if (status == "已生效")
+	{
+		return "三角度样本完整，当前模板已生效并可用于门禁或核验。";
+	}
+
+	if (status == "需重录")
+	{
+		return NormalizeOptionalText(retakeReason) ?? "当前质量不足，需重新采集。";
+	}
+
+	if (steps.Count == 0)
+	{
+		return "尚未开始采集，请先记录正脸、左侧脸和右侧脸样本。";
+	}
+
+	if (steps.Count < 3)
+	{
+		return $"已完成 {steps.Count}/3 个角度样本，继续补齐后再进入人工确认。";
+	}
+
+	return qualityScore >= 85 ? "样本已齐，可进入人工确认与激活。" : "样本已齐但质量偏低，建议退回重录。";
+}
+
+static string? NormalizeFaceCaptureStep(string? step)
+{
+	if (string.Equals(step, "front", StringComparison.OrdinalIgnoreCase))
+	{
+		return "front";
+	}
+
+	if (string.Equals(step, "left", StringComparison.OrdinalIgnoreCase))
+	{
+		return "left";
+	}
+
+	if (string.Equals(step, "right", StringComparison.OrdinalIgnoreCase))
+	{
+		return "right";
+	}
+
+	return null;
 }
 
 static string? NormalizeOptionalText(string? value)

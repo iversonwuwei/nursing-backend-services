@@ -193,3 +193,43 @@ public sealed record ElderListResponse(
     int Total,
     int Page,
     int PageSize);
+
+public sealed record ElderFaceEnrollmentListItemResponse(
+    string ElderId,
+    string TenantId,
+    string ElderName,
+    string RoomNumber,
+    string CareLevel,
+    string FaceEnrollmentStatus,
+    IReadOnlyList<string> FaceCapturedSteps,
+    int FaceQualityScore,
+    string FaceQualitySummary,
+    string? FaceOperator,
+    string? FaceDeviceLabel,
+    string? FaceEntrySource,
+    DateTimeOffset? FaceLastUpdatedUtc,
+    DateTimeOffset? FaceActivatedAtUtc,
+    string? FaceActivationNote,
+    string? FaceRetakeReason);
+
+public sealed record ElderFaceEnrollmentListResponse(
+    IReadOnlyList<ElderFaceEnrollmentListItemResponse> Items,
+    int Total,
+    int Page,
+    int PageSize);
+
+public sealed record ElderFaceEnrollmentUpdateRequest(
+    string Operator,
+    string DeviceLabel,
+    string EntrySource);
+
+public sealed record ElderFaceCaptureRequest(
+    string Step,
+    string Operator,
+    string DeviceLabel);
+
+public sealed record ElderFaceActivationRequest(
+    string ActivationNote);
+
+public sealed record ElderFaceRetakeRequest(
+    string Reason);

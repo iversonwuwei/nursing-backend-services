@@ -89,6 +89,36 @@ app.MapGet("/api/visits/elders/{elderId}/appointments", async (string elderId, V
 		PlannedAtUtc: entity.PlannedAtUtc)));
 }).RequireAuthorization();
 
+app.MapGet("/api/visits/appointments", async (HttpContext context, VisitDbContext dbContext, int? take, CancellationToken cancellationToken) =>
+{
+	var requestContext = context.GetPlatformRequestContext();
+	if (requestContext is null || string.IsNullOrWhiteSpace(requestContext.TenantId))
+	{
+		return Results.Problem(title: "缺少租户上下文。", statusCode: StatusCodes.Status400BadRequest);
+	}
+
+	var limit = Math.Clamp(take ?? 100, 1, 500);
+	var tenantId = requestContext.TenantId;
+
+	var items = await dbContext.VisitAppointments
+		.Where(item => item.TenantId == tenantId)
+		.OrderByDescending(item => item.PlannedAtUtc)
+		.Take(limit)
+		.ToListAsync(cancellationToken);
+
+	return Results.Ok(items.Select(entity => new AdminVisitAppointmentResponse(
+		VisitId: entity.VisitId,
+		ElderId: entity.ElderId,
+		TenantId: entity.TenantId,
+		VisitorName: entity.VisitorName,
+		Relation: entity.Relation,
+		Phone: string.IsNullOrWhiteSpace(entity.Phone) ? null : entity.Phone,
+		PlannedAtUtc: entity.PlannedAtUtc,
+		VisitType: entity.VisitType,
+		Status: entity.Status,
+		Notes: string.IsNullOrWhiteSpace(entity.Notes) ? null : entity.Notes)));
+}).RequireAuthorization();
+
 app.MapPost("/api/visits/outbox/dispatch", async (HttpContext context, VisitDbContext dbContext, IHttpClientFactory httpClientFactory, IConfiguration configuration, CancellationToken cancellationToken) =>
 {
 	var dispatched = await VisitOutboxNotificationDispatcher.DispatchPendingAsync(

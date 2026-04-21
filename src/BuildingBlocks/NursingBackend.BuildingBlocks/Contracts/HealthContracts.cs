@@ -78,3 +78,39 @@ public sealed record AdminHealthArchiveListItemResponse(
 public sealed record AdminHealthArchiveListResponse(
     IReadOnlyList<AdminHealthArchiveListItemResponse> Items,
     DateTimeOffset GeneratedAtUtc);
+
+public sealed record VitalObservationCreateRequest(
+    string ElderId,
+    string BloodPressure,
+    int HeartRate,
+    decimal Temperature,
+    decimal BloodSugar,
+    int Oxygen,
+    string RecordedBy,
+    DateTimeOffset? RecordedAtUtc);
+
+public sealed record VitalObservationResponse(
+    string ObservationId,
+    string TenantId,
+    string ElderId,
+    string BloodPressure,
+    int HeartRate,
+    decimal Temperature,
+    decimal BloodSugar,
+    int Oxygen,
+    string RecordedBy,
+    DateTimeOffset RecordedAtUtc);
+
+public sealed record AdminVitalObservationResponse(
+    string ObservationId,
+    string TenantId,
+    string ElderId,
+    string ElderName,
+    string RoomNumber,
+    string BloodPressure,
+    int HeartRate,
+    decimal Temperature,
+    decimal BloodSugar,
+    int Oxygen,
+    string RecordedBy,
+    DateTimeOffset RecordedAtUtc);

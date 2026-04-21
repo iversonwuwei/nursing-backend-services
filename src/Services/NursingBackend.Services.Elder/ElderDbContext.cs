@@ -80,6 +80,7 @@ public sealed class ElderDbContext(DbContextOptions<ElderDbContext> options) : D
         modelBuilder.Entity<ElderProfileEntity>().HasKey(item => item.ElderId);
         modelBuilder.Entity<ElderProfileEntity>().Property(item => item.MedicalAlerts).HasConversion(alertsConverter).Metadata.SetValueComparer(StringListComparer);
         modelBuilder.Entity<ElderProfileEntity>().Property(item => item.ServiceItems).HasConversion(serviceItemsConverter).Metadata.SetValueComparer(StringListComparer);
+        modelBuilder.Entity<ElderProfileEntity>().Property(item => item.FaceCapturedSteps).HasConversion(genericListConverter).Metadata.SetValueComparer(StringListComparer);
         modelBuilder.Entity<OutboxMessageEntity>().HasKey(item => item.OutboxMessageId);
     }
 }

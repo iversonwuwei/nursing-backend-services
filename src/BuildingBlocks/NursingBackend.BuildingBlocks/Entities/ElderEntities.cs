@@ -60,4 +60,15 @@ public sealed class ElderProfileEntity
     public decimal? MonthlySubsidy { get; set; }
     public List<string> ServiceItems { get; set; } = [];
     public string? ServiceNotes { get; set; }
+    public string FaceEnrollmentStatus { get; set; } = "待录入";
+    public List<string> FaceCapturedSteps { get; set; } = [];
+    public int FaceQualityScore { get; set; }
+    public string FaceQualitySummary { get; set; } = "尚未开始采集，请先记录三个角度样本。";
+    public string? FaceOperator { get; set; }
+    public string? FaceDeviceLabel { get; set; }
+    public string? FaceEntrySource { get; set; }
+    public DateTimeOffset? FaceLastUpdatedUtc { get; set; }
+    public DateTimeOffset? FaceActivatedAtUtc { get; set; }
+    public string? FaceActivationNote { get; set; }
+    public string? FaceRetakeReason { get; set; }
 }
