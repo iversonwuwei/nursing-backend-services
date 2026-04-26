@@ -76,6 +76,10 @@ dotnet test nursing-backend-services.slnx
 - Postgres 会自动挂载 `deploy/postgres/init/01-create-service-databases.sh`，首次初始化时创建 `nursing_elder`、`nursing_health`、`nursing_care`、`nursing_visit`、`nursing_billing`、`nursing_notification`、`nursing_operations`、`nursing_organizations`、`nursing_rooms`、`nursing_staffing`、`nursing_config`、`nursing_ai`。
 - 若本地复用了旧的 Postgres volume，`NursingBackend.DatabaseMigrator` 也会在迁移前补建缺失的 service database，不要求先删卷重建。
 - 旧的 `deploy/compose.infrastructure.yml` 仍保留给 deploy 目录内部资产使用，但本地开发默认优先使用根目录入口，避免相对路径混淆。
+- Debug 构建默认使用 Workstation GC，避免 macOS 上一次启动多个 ASP.NET Core 服务时 Server GC 按进程放大本地内存预留；Release 构建仍保留生产默认 GC 行为。
+- EventWorker 的 RabbitMQ 消费窗口由 `RabbitMq:ConsumerPrefetchCount` 控制，默认 20，避免本地队列积压时启动 worker 被 broker 一次性推送过多消息。
+- 本地 `launchSettings.json` 关闭自动打开浏览器，并设置 `DOTNET_PROCESSOR_COUNT=2` 与 `MSBUILDDISABLENODEREUSE=1`，避免 IDE/CLI 一次启动多个 backend profile 时每个服务都按整机 CPU 数调度，同时避免 CLI 退出后残留 MSBuild node reuse 子进程。
+- 本地 `docker-compose-infras.yml` 对 Postgres、Redis、RabbitMQ、Keycloak、Seq 设置 CPU 和内存上限，避免基础设施容器启动期与 backend 服务抢占全部 macOS CPU。
 
 数据库初始化顺序:
 

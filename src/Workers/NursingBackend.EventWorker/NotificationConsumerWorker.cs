@@ -35,6 +35,7 @@ public sealed class NotificationConsumerWorker(
 		using var connection = factory.CreateConnection();
 		using var channel = connection.CreateModel();
 		RabbitMqTopology.Configure(channel, options);
+		channel.BasicQos(prefetchSize: 0, prefetchCount: options.ResolveConsumerPrefetchCount(), global: false);
 
 		var consumer = new AsyncEventingBasicConsumer(channel);
 		consumer.Received += async (_, eventArgs) =>

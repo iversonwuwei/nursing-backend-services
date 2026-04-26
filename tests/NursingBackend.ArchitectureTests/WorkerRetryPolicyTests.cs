@@ -42,4 +42,35 @@ public class WorkerRetryPolicyTests
 		Assert.False(replayHeaders.ContainsKey("x-retry-count"));
 		Assert.Equal("dead-letter", replayHeaders["x-origin"]);
 	}
+
+	[Fact]
+	public void Rabbitmq_prefetch_count_defaults_to_bounded_window()
+	{
+		var options = new RabbitMqOptions();
+
+		Assert.Equal((ushort)20, options.ResolveConsumerPrefetchCount());
+	}
+
+	[Fact]
+	public void Rabbitmq_prefetch_count_falls_back_to_batch_size_when_disabled()
+	{
+		var options = new RabbitMqOptions
+		{
+			ConsumerPrefetchCount = 0,
+			BatchSize = 8,
+		};
+
+		Assert.Equal((ushort)8, options.ResolveConsumerPrefetchCount());
+	}
+
+	[Fact]
+	public void Rabbitmq_prefetch_count_is_clamped_to_amqp_limit()
+	{
+		var options = new RabbitMqOptions
+		{
+			ConsumerPrefetchCount = ushort.MaxValue + 1,
+		};
+
+		Assert.Equal(ushort.MaxValue, options.ResolveConsumerPrefetchCount());
+	}
 }

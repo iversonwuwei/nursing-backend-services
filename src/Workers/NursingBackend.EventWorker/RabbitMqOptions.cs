@@ -17,4 +17,11 @@ public sealed class RabbitMqOptions
 	public int MaxRetryAttempts { get; init; } = 3;
 	public int PublishIntervalSeconds { get; init; } = 5;
 	public int BatchSize { get; init; } = 20;
+	public int ConsumerPrefetchCount { get; init; } = 20;
+
+	public ushort ResolveConsumerPrefetchCount()
+	{
+		var configured = ConsumerPrefetchCount > 0 ? ConsumerPrefetchCount : BatchSize;
+		return (ushort)Math.Clamp(configured, 1, ushort.MaxValue);
+	}
 }

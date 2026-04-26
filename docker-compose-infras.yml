@@ -4,6 +4,8 @@ services:
   postgres:
     image: postgres:16
     restart: unless-stopped
+    cpus: 1.5
+    mem_limit: 1g
     environment:
       POSTGRES_DB: postgres
       POSTGRES_USER: nursing
@@ -23,6 +25,8 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    cpus: 0.5
+    mem_limit: 256m
     command: ["redis-server", "--appendonly", "yes"]
     ports:
       - "6379:6379"
@@ -37,6 +41,8 @@ services:
   rabbitmq:
     image: rabbitmq:3-management
     restart: unless-stopped
+    cpus: 1.0
+    mem_limit: 1g
     environment:
       RABBITMQ_DEFAULT_USER: nursing
       RABBITMQ_DEFAULT_PASS: nursing
@@ -54,11 +60,14 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:26.1
     restart: unless-stopped
+    cpus: 2.0
+    mem_limit: 2g
     command: start-dev
     environment:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
       KC_HEALTH_ENABLED: "true"
+      JAVA_OPTS_APPEND: "-XX:ActiveProcessorCount=2"
     ports:
       - "8080:8080"
     volumes:
@@ -67,6 +76,8 @@ services:
   seq:
     image: datalust/seq:2024.3
     restart: unless-stopped
+    cpus: 1.0
+    mem_limit: 1g
     environment:
       ACCEPT_EULA: "Y"
     ports:
